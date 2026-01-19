@@ -225,7 +225,7 @@ export class AnimationImporter {
       if (processedSchema.audio?.tracks) {
         for (const audioConfig of processedSchema.audio.tracks) {
           const clip: Clip = {
-            id: `clip-audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `clip-audio-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
             mediaId: audioConfig.assetId,
             trackId: audioTrack.id,
             startTime: audioConfig.startTime,
@@ -360,7 +360,7 @@ export class AnimationImporter {
     const textClip: TextClip = {
       id:
         layer.id ||
-        `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        `text-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       trackId,
       text: layer.content,
       startTime: layer.startTime ?? 0,
@@ -418,7 +418,7 @@ export class AnimationImporter {
     const shapeClip: ShapeClip = {
       id:
         layer.id ||
-        `shape-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        `shape-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       trackId,
       type: "shape",
       shapeType,
@@ -450,7 +450,7 @@ export class AnimationImporter {
     const clip: Clip = {
       id:
         layer.id ||
-        `clip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        `clip-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       mediaId: layer.assetId,
       trackId: videoTrack.id,
       startTime: layer.startTime ?? 0,
@@ -491,7 +491,7 @@ export class AnimationImporter {
     const clip: Clip = {
       id:
         layer.id ||
-        `clip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        `clip-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       mediaId: layer.assetId,
       trackId: videoTrack.id,
       startTime: layer.startTime ?? 0,
@@ -532,7 +532,7 @@ export class AnimationImporter {
     for (const animation of animations) {
       for (const kf of animation.keyframes) {
         keyframes.push({
-          id: `kf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `kf-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           time: kf.time + (animation.delay || 0),
           property: animation.property,
           value: kf.value,

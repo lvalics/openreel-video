@@ -85,7 +85,7 @@ export interface MaskEngineConfig {
 }
 
 function generateId(): string {
-  return `mask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `mask-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 export function shapeToPath(shape: MaskShape): BezierPath {

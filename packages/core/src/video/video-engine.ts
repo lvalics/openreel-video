@@ -272,6 +272,9 @@ export class VideoEngine {
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
     const videoAspect = video.videoWidth / video.videoHeight;
     const canvasAspect = width / height;
     let drawWidth: number, drawHeight: number, drawX: number, drawY: number;
@@ -360,6 +363,8 @@ export class VideoEngine {
 
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext("2d") as OffscreenCanvasRenderingContext2D;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, width, height);
 
@@ -2024,7 +2029,9 @@ export class VideoEngine {
     const ctx = canvas.getContext("2d");
     if (!ctx) return frame;
 
-    // Draw the original frame
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
     ctx.drawImage(frame, 0, 0);
     const filterString = this.buildFilterString(filter);
     if (filterString) {

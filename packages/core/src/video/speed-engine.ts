@@ -56,8 +56,6 @@ export class SpeedEngine {
       return this.calculateVariableSpeedDuration(data);
     }
 
-    // Simple case: constant speed
-
     return data.originalDuration / data.baseSpeed;
   }
 
@@ -148,7 +146,7 @@ export class SpeedEngine {
 
     const id = `speed-kf-${Date.now()}-${Math.random()
       .toString(36)
-      .substr(2, 9)}`;
+      .slice(2, 11)}`;
     const keyframe: SpeedKeyframe = {
       id,
       time,
@@ -200,12 +198,10 @@ export class SpeedEngine {
 
     const sorted = [...keyframes].sort((a, b) => a.time - b.time);
 
-    // Before first keyframe
     if (sourceTime <= sorted[0].time) {
       return sorted[0].speed;
     }
 
-    // After last keyframe
     if (sourceTime >= sorted[sorted.length - 1].time) {
       return sorted[sorted.length - 1].speed;
     }
@@ -240,7 +236,7 @@ export class SpeedEngine {
 
     const id = `freeze-${Date.now()}-${Math.random()
       .toString(36)
-      .substr(2, 9)}`;
+      .slice(2, 11)}`;
     const freezeFrame: FreezeFrame = {
       id,
       clipId,
@@ -296,14 +292,11 @@ export class SpeedEngine {
       return freezeFrame.sourceTime;
     }
 
-    // Account for freeze frames before this time
     let adjustedTime = playbackTime;
     for (const ff of data.freezeFrames) {
       if (ff.startTime + ff.duration <= playbackTime) {
-        // This freeze frame is entirely before our time, subtract its duration
         adjustedTime -= ff.duration;
       } else if (ff.startTime < playbackTime) {
-        // We're past the start but not the end - handled above
         break;
       }
     }
@@ -311,7 +304,6 @@ export class SpeedEngine {
       return this.calculateSourceTimeWithVariableSpeed(data, adjustedTime);
     }
 
-    // Simple case: constant speed
     let sourceTime = adjustedTime * data.baseSpeed;
     if (data.reverse) {
       sourceTime = data.originalDuration - sourceTime;
@@ -332,7 +324,6 @@ export class SpeedEngine {
     if (playbackTime <= 0) return 0;
     if (playbackTime >= effectiveDuration) return data.originalDuration;
 
-    // Binary search for source time
     let low = 0;
     let high = data.originalDuration;
     const tolerance = 0.0001;

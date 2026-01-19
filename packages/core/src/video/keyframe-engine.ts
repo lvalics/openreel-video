@@ -449,7 +449,7 @@ export class KeyframeEngine {
     }
   }
   private generateKeyframeId(): string {
-    return `kf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `kf-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   }
 
   private mapEasingPresetToType(preset: EasingPreset): EasingType {

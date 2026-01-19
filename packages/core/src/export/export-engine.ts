@@ -315,6 +315,7 @@ export class ExportEngine {
         bitrate: fullSettings.bitrate * 1000,
         keyFrameInterval:
           fullSettings.keyframeInterval / fullSettings.frameRate,
+        hardwareAcceleration: "prefer-hardware",
       });
       const audioSource = new AudioSampleSource({
         codec: audioCodecResult.codec as "aac" | "opus" | "mp3",

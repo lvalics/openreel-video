@@ -194,7 +194,6 @@ export const Preview: React.FC = () => {
   const currentVideoMediaIdRef = useRef<string | null>(null);
   const nativePlaybackActiveRef = useRef<boolean>(false);
 
-  // Audio playback refs
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const audioGraphRef = useRef<ReturnType<typeof getRealtimeAudioGraph> | null>(
@@ -202,7 +201,6 @@ export const Preview: React.FC = () => {
   );
   const audioBufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
-  // WebGPU renderer refs
   const rendererRef = useRef<Renderer | null>(null);
   const rendererInitializedRef = useRef<boolean>(false);
 
@@ -351,7 +349,6 @@ export const Preview: React.FC = () => {
     allSubtitlesRef.current = allSubtitles;
   }, [allSubtitles]);
 
-  // UI store for selection
   const selectedItems = useUIStore((state) => state.selectedItems);
   const cropMode = useUIStore((state) => state.cropMode);
   const cropClipId = useUIStore((state) => state.cropClipId);
@@ -397,7 +394,6 @@ export const Preview: React.FC = () => {
     return maxEnd;
   }, [project.timeline.tracks, allTextClips, allShapeClips]);
 
-  // Connect canvas to RenderBridge on mount
   // RenderBridge is guaranteed to be initialized before Preview renders (see EditorInterface)
   useEffect(() => {
     if (renderBridgeInitialized.current) return;
@@ -410,7 +406,6 @@ export const Preview: React.FC = () => {
     setIsRenderBridgeReady(true);
   }, []);
 
-  // Cleanup decoder cache on unmount
   useEffect(() => {
     return () => {
       for (const entry of decoderCacheRef.current.values()) {
@@ -452,7 +447,6 @@ export const Preview: React.FC = () => {
     }
   }, [settings.width, settings.height]);
 
-  // Update canvas reference if it changes
   useEffect(() => {
     if (isRenderBridgeReady && canvasRef.current) {
       const bridge = getRenderBridge();
@@ -526,9 +520,8 @@ export const Preview: React.FC = () => {
     }
   }, [settings.width, settings.height]);
 
-  // Playback loop - uses refs to avoid dependency on changing values
   const rateRef = useRef(playbackRate);
-  const startPositionRef = useRef(playheadPosition); // Capture starting position
+  const startPositionRef = useRef(playheadPosition);
 
   // MediaBunny playback resources - map of clipId to resources for multi-track playback
   const playbackResourcesRef = useRef<
@@ -546,19 +539,16 @@ export const Preview: React.FC = () => {
 
   const imageBitmapCacheRef = useRef<Map<string, ImageBitmap>>(new Map());
 
-  // Keep refs in sync
   useEffect(() => {
     rateRef.current = playbackRate;
   }, [playbackRate]);
 
-  // Update start position when not playing (so playback starts from current position)
   useEffect(() => {
     if (!isPlaying) {
       startPositionRef.current = playheadPosition;
     }
   }, [isPlaying, playheadPosition]);
 
-  // Cleanup playback resources
   const cleanupPlaybackResources = useCallback(() => {
     const resources = playbackResourcesRef.current;
     for (const [, resource] of resources) {
@@ -572,7 +562,6 @@ export const Preview: React.FC = () => {
     imageBitmapCacheRef.current = new Map();
   }, []);
 
-  // Cleanup audio resources
   const cleanupAudioResources = useCallback(() => {
     if (audioSourceRef.current) {
       try {
@@ -589,7 +578,6 @@ export const Preview: React.FC = () => {
     }
   }, []);
 
-  // Handle mute state changes
   useEffect(() => {
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = isMuted ? 0 : 1;
@@ -1075,15 +1063,12 @@ export const Preview: React.FC = () => {
       let hasRenderedFrame = false;
       let shouldClearCanvas = true;
 
-      // Get active overlay clips for layering
       const activeShapeClips = getActiveShapeClips(allShapeClips, time);
       const activeTextClips = getActiveTextClips(allTextClips, time);
 
-      // Check if we're in a transition region
       const transitionInfo = getTransitionAtTime(time, timelineTracks);
 
       if (transitionInfo) {
-        // Render transition between two clips
         try {
           const outgoingFrame = await decodeClipFrame(
             transitionInfo.clipA,
@@ -1099,7 +1084,6 @@ export const Preview: React.FC = () => {
           );
 
           if (outgoingFrame && incomingFrame) {
-            // Apply effects to both frames
             const processedOutgoing = await applyEffectsToFrame(
               transitionInfo.clipA.id,
               outgoingFrame,
@@ -1109,7 +1093,6 @@ export const Preview: React.FC = () => {
               incomingFrame,
             );
 
-            // Validate processed frames
             const validOutgoing =
               processedOutgoing.width > 0 && processedOutgoing.height > 0
                 ? processedOutgoing
@@ -1119,20 +1102,17 @@ export const Preview: React.FC = () => {
                 ? processedIncoming
                 : incomingFrame;
 
-            // Render the transition
             const blendedFrame = await renderTransitionFrame(
               transitionInfo,
               validOutgoing,
               validIncoming,
             );
 
-            // Validate blended frame
             if (
               blendedFrame &&
               blendedFrame.width > 0 &&
               blendedFrame.height > 0
             ) {
-              // Clear canvas and render "below-video" overlays first
               if (shouldClearCanvas) {
                 ctx.fillStyle = "#000000";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1162,7 +1142,6 @@ export const Preview: React.FC = () => {
               hasRenderedFrame = true;
             }
           } else if (outgoingFrame) {
-            // Only outgoing frame available
             const processed = await applyEffectsToFrame(
               transitionInfo.clipA.id,
               outgoingFrame,
@@ -1199,7 +1178,6 @@ export const Preview: React.FC = () => {
             );
             hasRenderedFrame = true;
           } else if (incomingFrame) {
-            // Only incoming frame available
             const processed = await applyEffectsToFrame(
               transitionInfo.clipB.id,
               incomingFrame,
@@ -1241,9 +1219,7 @@ export const Preview: React.FC = () => {
         }
       }
 
-      // If not in transition or transition render failed, render normally
       if (!hasRenderedFrame) {
-        // Check if we have any video/image clips at current time
         const hasVideoContent = videoTracks.some((track) =>
           track.clips.some(
             (clip) =>
@@ -1251,7 +1227,6 @@ export const Preview: React.FC = () => {
           ),
         );
 
-        // Clear canvas first before any rendering
         if (
           shouldClearCanvas &&
           (hasVideoContent ||
@@ -1283,7 +1258,6 @@ export const Preview: React.FC = () => {
 
         for (const { track } of allRenderableTracks) {
           if (track.type === "video" || track.type === "image") {
-            // Render video/image track
             for (const clip of track.clips) {
               const clipStart = clip.startTime;
               const clipEnd = clip.startTime + clip.duration;
@@ -1377,7 +1351,6 @@ export const Preview: React.FC = () => {
               }
             }
           } else if (track.type === "graphics") {
-            // Render graphics track
             const trackShapeClips = activeShapeClips.filter(
               (sc) => sc.trackId === track.id,
             );
@@ -1392,7 +1365,6 @@ export const Preview: React.FC = () => {
               hasRenderedFrame = true;
             }
           } else if (track.type === "text") {
-            // Render text track
             const trackTextClips = activeTextClips.filter(
               (tc) => tc.trackId === track.id,
             );
@@ -1444,13 +1416,11 @@ export const Preview: React.FC = () => {
     ],
   );
 
-  // Fallback frame rendering when VideoEngine is not available
   const renderFallbackFrame = useCallback(
     (time: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      // Ensure canvas has valid dimensions
       if (canvas.width === 0 || canvas.height === 0) {
         canvas.width = settings.width;
         canvas.height = settings.height;
@@ -1464,16 +1434,13 @@ export const Preview: React.FC = () => {
       const textPrimary = isDark ? "#ffffff" : "#18181b";
       const textSecondary = isDark ? "#a1a1aa" : "#71717a";
 
-      // Get active overlay clips for layering
       const activeShapeClips = getActiveShapeClips(allShapeClips, time);
       const activeTextClips = getActiveTextClips(allTextClips, time);
 
-      // Find clips at current playhead position
       const videoTracks = timelineTracks.filter(
         (t) => (t.type === "video" || t.type === "image") && !t.hidden,
       );
 
-      // Check if there are any video/image clips at current time
       const hasVideoContent = videoTracks.some((track) =>
         track.clips.some(
           (clip) =>
@@ -1481,7 +1448,6 @@ export const Preview: React.FC = () => {
         ),
       );
 
-      // Fill background FIRST
       ctx.fillStyle = hasVideoContent
         ? isDark
           ? "#18181b"
@@ -1491,7 +1457,6 @@ export const Preview: React.FC = () => {
 
       let hasRenderedContent = false;
 
-      // Render ALL tracks in layer order using painter's algorithm
       const allRenderableTracks = timelineTracks
         .map((track, idx) => ({ track, originalIndex: idx }))
         .filter(
@@ -1580,7 +1545,6 @@ export const Preview: React.FC = () => {
         }
       }
 
-      // Always render subtitles on top of everything
       const activeSubtitles = getActiveSubtitles(allSubtitles, time);
       for (const subtitle of activeSubtitles) {
         renderSubtitleToCanvas(
@@ -1592,7 +1556,6 @@ export const Preview: React.FC = () => {
         );
       }
 
-      // Check if there are any active audio clips
       const audioTracks = timelineTracks.filter(
         (t) => t.type === "audio" && !t.hidden,
       );
@@ -1603,7 +1566,6 @@ export const Preview: React.FC = () => {
         ),
       );
 
-      // Show empty message only if nothing was rendered
       if (
         !hasRenderedContent &&
         activeTextClips.length === 0 &&
@@ -1650,22 +1612,23 @@ export const Preview: React.FC = () => {
       const tracks = timelineTracks;
       const videoTracks = tracks.filter((t) => t.type === "video" && !t.hidden);
 
-      // Collect all video clips sorted by start time
       const allVideoClips: Array<{
         clip: (typeof tracks)[0]["clips"][0];
         mediaItem: NonNullable<ReturnType<typeof getMediaItem>>;
       }> = [];
+      const speedEngine = getSpeedEngine();
+
       for (const track of videoTracks) {
         for (const clip of track.clips) {
           if (clip.startTime + clip.duration > startPosition) {
             const mediaItem = getMediaItem(clip.mediaId);
             if (mediaItem?.blob && mediaItem.type === "video") {
-              const speedEngine = getSpeedEngine();
               const clipSpeed = speedEngine.getClipSpeed(clip.id);
               const isReverse = speedEngine.isReverse(clip.id);
-              if (clipSpeed === 1 && !isReverse) {
-                allVideoClips.push({ clip, mediaItem });
+              if (clipSpeed !== 1 || isReverse) {
+                return { canUse: false, clips: [] };
               }
+              allVideoClips.push({ clip, mediaItem });
             }
           }
         }
@@ -1673,7 +1636,6 @@ export const Preview: React.FC = () => {
 
       if (allVideoClips.length === 0) return { canUse: false, clips: [] };
 
-      // Sort by start time
       allVideoClips.sort((a, b) => a.clip.startTime - b.clip.startTime);
 
       // Check for overlapping clips (multi-layer) - can't use native playback for compositing
@@ -1735,7 +1697,6 @@ export const Preview: React.FC = () => {
 
       nativePlaybackActiveRef.current = true;
 
-      // Pre-cache all image bitmaps for backgrounds
       const imageBitmapCache = new Map<string, ImageBitmap>();
       for (const { clip } of imageClips) {
         const mediaItem = getMediaItem(clip.mediaId);
@@ -1749,10 +1710,8 @@ export const Preview: React.FC = () => {
         }
       }
 
-      // Pre-decode all audio buffers before playback
       await preDecodeAllAudioBuffers();
 
-      // Pre-load all video elements
       const videoCache = new Map<
         string,
         { video: HTMLVideoElement; url: string }
@@ -1874,7 +1833,6 @@ export const Preview: React.FC = () => {
         const activeClip = findClipAtTime(currentPlayhead);
 
         if (!activeClip) {
-          // Gap between clips - show black frame and continue
           ctx.fillStyle = "#000000";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           setPlayheadPosition(currentPlayhead);
@@ -1893,7 +1851,6 @@ export const Preview: React.FC = () => {
 
         const { video } = cached;
 
-        // Start playing video if switching to a new clip
         if (currentClipId !== clip.id) {
           currentClipId = clip.id;
           currentVideo = video;
@@ -1909,15 +1866,23 @@ export const Preview: React.FC = () => {
           video.currentTime = targetMediaTime;
         }
 
+        const latestClip = (() => {
+          for (const track of timelineTracksRef.current) {
+            const found = track.clips.find((c) => c.id === clip.id);
+            if (found) return found;
+          }
+          return clip;
+        })();
+
         let transform = getAnimatedTransform(
-          (clip.transform as ClipTransform) || DEFAULT_TRANSFORM,
-          clip.keyframes,
+          (latestClip.transform as ClipTransform) || DEFAULT_TRANSFORM,
+          latestClip.keyframes,
           clipLocalTime,
         );
 
-        if (clip.emphasisAnimation && clip.emphasisAnimation.type !== "none") {
+        if (latestClip.emphasisAnimation && latestClip.emphasisAnimation.type !== "none") {
           const emphasisState = applyEmphasisAnimation(
-            clip.emphasisAnimation,
+            latestClip.emphasisAnimation,
             clipLocalTime,
           );
           transform = {
@@ -1938,7 +1903,6 @@ export const Preview: React.FC = () => {
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw image clips (backgrounds) first - they're behind the video
         // Sort by track index descending (higher index = background = render first)
         const sortedImageClips = [...imageClips].sort(
           (a, b) => b.trackIndex - a.trackIndex,
@@ -1950,10 +1914,17 @@ export const Preview: React.FC = () => {
           ) {
             const bitmap = imageBitmapCache.get(imgClip.id);
             if (bitmap) {
+              const latestImgClip = (() => {
+                for (const track of timelineTracksRef.current) {
+                  const found = track.clips.find((c) => c.id === imgClip.id);
+                  if (found) return found;
+                }
+                return imgClip;
+              })();
               const imgClipLocalTime = currentPlayhead - imgClip.startTime;
               const imgTransform = getAnimatedTransform(
-                (imgClip.transform as ClipTransform) || DEFAULT_TRANSFORM,
-                imgClip.keyframes,
+                (latestImgClip.transform as ClipTransform) || DEFAULT_TRANSFORM,
+                latestImgClip.keyframes,
                 imgClipLocalTime,
               );
               drawFrameWithTransform(
@@ -1977,7 +1948,6 @@ export const Preview: React.FC = () => {
           currentPlayhead,
         );
 
-        // Draw video frame
         drawFrameWithTransform(ctx, video, transform, canvas.width, canvas.height);
 
         // Use CPU canvas2D for all overlays - more reliable than GPU compositing
@@ -2074,21 +2044,18 @@ export const Preview: React.FC = () => {
     ],
   );
 
-  // Main playback effect
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
     }
 
-    // Ensure canvas has dimensions
     if (canvas.width === 0 || canvas.height === 0) {
       canvas.width = settings.width;
       canvas.height = settings.height;
     }
 
     if (!isPlaying) {
-      // Stop playback
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
@@ -2098,7 +2065,6 @@ export const Preview: React.FC = () => {
       return;
     }
 
-    // Don't start playback if there's nothing to play
     if (actualEndTime <= 0) {
       pause();
       return;
@@ -2107,7 +2073,6 @@ export const Preview: React.FC = () => {
     let isActive = true;
     const playbackStartPosition = startPositionRef.current;
 
-    // Find ALL clips at current playhead (for multi-track compositing)
     const findAllClipsAtTime = (time: number) => {
       const tracks = timelineTracksRef.current;
       const results: Array<{
@@ -2140,7 +2105,6 @@ export const Preview: React.FC = () => {
       return results.length > 0 ? results[0] : null;
     };
 
-    // Start playback for a specific clip at a given timeline position
     const startPlaybackForClip = async (
       clip: (typeof timelineTracksRef.current)[0]["clips"][0],
       _track: (typeof timelineTracksRef.current)[0],
@@ -2149,7 +2113,6 @@ export const Preview: React.FC = () => {
       try {
         const mediaItem = getMediaItem(clip.mediaId);
         if (!mediaItem?.blob) {
-          // Try to find next clip
           const clipEndTime = clip.startTime + clip.duration;
           const nextResult = findClipAtTime(clipEndTime);
           if (nextResult && clipEndTime < actualEndTime && isActive) {
@@ -2214,12 +2177,9 @@ export const Preview: React.FC = () => {
             poolSize: getAdaptivePoolSize(sinkWidth, sinkHeight),
           });
 
-          // Calculate start time in media (with speed adjustment)
-          // Check both video clip speed AND linked audio clip speed
           const speedEngine = getSpeedEngine();
           const clipLocalTime = Math.max(0, timelinePosition - clip.startTime);
 
-          // Get video clip's speed
           let currentSpeed = speedEngine.getClipSpeed(clip.id);
           let isReverse = speedEngine.isReverse(clip.id);
           let speedSourceClip = clip.id;
@@ -2231,7 +2191,6 @@ export const Preview: React.FC = () => {
 
             for (const audioTrack of audioTracks) {
               for (const audioClip of audioTrack.clips) {
-                // Check if this audio clip is linked (same mediaId, same startTime)
                 if (
                   audioClip.mediaId === clip.mediaId &&
                   Math.abs(audioClip.startTime - clip.startTime) < 0.01
@@ -2258,15 +2217,12 @@ export const Preview: React.FC = () => {
           const mediaStartTime = (clip.inPoint || 0) + adjustedLocalTime;
 
           const mediaEndTime = Math.min(
-            (clip.inPoint || 0) + clip.duration,
+            clip.outPoint || (clip.inPoint || 0) + clip.duration,
             (await videoTrack.computeDuration()) || Infinity,
           );
 
-          // Setup audio playback from the AUDIO TRACK (not from video clip)
-          // This allows audio effects to be applied to audio track clips
           await setupAudioFromAudioTrack(timelinePosition);
 
-          // Get 2D context
           const ctx = canvas.getContext("2d");
           if (!ctx) {
             console.error("[Preview] Failed to get 2D context from canvas");
@@ -2274,18 +2230,13 @@ export const Preview: React.FC = () => {
             return;
           }
 
-          // Frame timing - default to 30fps (33.33ms per frame)
           const frameDuration = 1000 / 30;
 
-          // Playback state
-          // currentMediaTime: time in the source video (advances at speed rate)
-          // currentPlayheadTime: time in the timeline (advances at normal rate)
           let currentMediaTime = mediaStartTime;
           let currentPlayheadTime = timelinePosition;
           let lastFrameTimestamp = performance.now();
           let frameCount = 0;
 
-          // Use getCanvas() for each frame - this is proven to work (pause uses it)
           const processNextFrame = async () => {
             if (!isActive) {
               input[Symbol.dispose]?.();
@@ -2293,7 +2244,6 @@ export const Preview: React.FC = () => {
             }
 
             try {
-              // Check if we've reached the end of the clip
               if (currentMediaTime >= mediaEndTime) {
                 input[Symbol.dispose]?.();
                 cleanupAudioResources();
@@ -2316,7 +2266,6 @@ export const Preview: React.FC = () => {
                 return;
               }
 
-              // Use getCanvas() - same method that works during pause/scrubbing
               const frameResult = await (
                 sink as {
                   getCanvas: (time: number) => Promise<{
@@ -2331,7 +2280,6 @@ export const Preview: React.FC = () => {
 
               if (!frameResult || !frameResult.canvas) {
                 console.warn("[Preview] No frame at time", currentMediaTime);
-                // Skip to next frame - advance both times keeping them in sync
                 const skipTime = frameDuration / 1000;
                 currentPlayheadTime += skipTime;
                 currentMediaTime += skipTime * currentSpeed;
@@ -2344,7 +2292,6 @@ export const Preview: React.FC = () => {
 
               const { canvas: frameCanvas, duration } = frameResult;
 
-              // Validate frame canvas dimensions
               const frameWidth = "width" in frameCanvas ? frameCanvas.width : 0;
               const frameHeight =
                 "height" in frameCanvas ? frameCanvas.height : 0;
@@ -2370,7 +2317,6 @@ export const Preview: React.FC = () => {
                 return;
               }
 
-              // Get clip transform with keyframe animations applied
               const clipLocalTime = currentPlayhead - clip.startTime;
               let transform = getAnimatedTransform(
                 (clip.transform as ClipTransform) || DEFAULT_TRANSFORM,
@@ -2463,16 +2409,12 @@ export const Preview: React.FC = () => {
 
               setPlayheadPosition(currentPlayhead);
 
-              // Frame pacing
               const now = performance.now();
               const elapsed = now - lastFrameTimestamp;
               const actualFrameDuration =
                 duration > 0 ? duration * 1000 : frameDuration;
               const targetTime = actualFrameDuration / rateRef.current;
 
-              // Advance times:
-              // - playhead advances at normal rate (1x)
-              // - media time advances at speed rate (for fetching correct video frames)
               const normalTimeAdvance = actualFrameDuration / 1000;
               const mediaTimeAdvance = normalTimeAdvance * currentSpeed;
               currentPlayheadTime += normalTimeAdvance;
@@ -2501,7 +2443,6 @@ export const Preview: React.FC = () => {
             }
           };
 
-          // Start the playback loop
           animationRef.current = requestAnimationFrame(processNextFrame);
         } catch (error) {
           console.error("[Preview] MediaBunny setup error:", error);
@@ -2516,7 +2457,6 @@ export const Preview: React.FC = () => {
       }
     };
 
-    // Initialize MediaBunny resources for a clip
     const initClipResources = async (
       clip: (typeof timelineTracksRef.current)[0]["clips"][0],
       trackIndex: number,
@@ -2577,7 +2517,6 @@ export const Preview: React.FC = () => {
       }
     };
 
-    // Pre-cache all image bitmaps for image tracks before playback starts
     const preCacheAllImageBitmaps = async () => {
       const tracks = timelineTracksRef.current;
       const imageTracks = tracks.filter(
@@ -2604,7 +2543,6 @@ export const Preview: React.FC = () => {
       }
     };
 
-    // Start multi-track playback
     const startMultiTrackPlayback = async () => {
       const initialClips = findAllClipsAtTime(playbackStartPosition);
       const activeTextClips = getActiveTextClips(
@@ -2616,7 +2554,6 @@ export const Preview: React.FC = () => {
         playbackStartPosition,
       );
 
-      // Check for active audio clips
       const audioTracks = timelineTracksRef.current.filter(
         (t) => t.type === "audio" && !t.hidden,
       );
@@ -2639,7 +2576,6 @@ export const Preview: React.FC = () => {
         return;
       }
 
-      // Pre-cache all image bitmaps before starting playback
       await preCacheAllImageBitmaps();
 
       for (const { clip, trackIndex } of initialClips) {
@@ -2764,7 +2700,6 @@ export const Preview: React.FC = () => {
             currentPlayhead,
           );
 
-          // Check for active audio clips at current playhead
           const audioTracksForFrame = timelineTracksRef.current.filter(
             (t) => t.type === "audio" && !t.hidden,
           );
@@ -2838,8 +2773,6 @@ export const Preview: React.FC = () => {
             (a, b) => b.trackIndex - a.trackIndex,
           );
 
-          // Separate image clips (synchronous) from video clips (async)
-          // Use track type, not media item type, to determine handling
           const imageClipFrames: Array<{
             clip: (typeof sortedClips)[0]["clip"];
             transform: ClipTransform;
@@ -2897,7 +2830,6 @@ export const Preview: React.FC = () => {
               };
             }
 
-            // Use TRACK TYPE to determine if this is an image clip
             if (track.type === "image") {
               const cachedBitmap = imageBitmapCacheRef.current.get(clip.id);
               if (cachedBitmap) {
@@ -2906,7 +2838,6 @@ export const Preview: React.FC = () => {
               continue;
             }
 
-            // Video clips use MediaBunny resources (async)
             videoClipPromises.push(
               (async () => {
                 const resources = playbackResourcesRef.current.get(clip.id);
@@ -2967,13 +2898,11 @@ export const Preview: React.FC = () => {
             );
           }
 
-          // Wait for video frames
           const videoFrameResults = await Promise.all(videoClipPromises);
           const validVideoFrames = videoFrameResults.filter(
             (f): f is NonNullable<typeof f> => f !== null,
           );
 
-          // Combine image frames (already collected synchronously) with video frames
           const validFrames = [...imageClipFrames, ...validVideoFrames];
 
           if (
@@ -3342,8 +3271,6 @@ export const Preview: React.FC = () => {
       return nextStart;
     };
 
-    // Start playback from the initial position
-    // Try native video playback first for better performance (hardware-accelerated)
     const startPlayback = async () => {
       const nativeCheck = canUseNativeVideoPlayback(playbackStartPosition);
 
@@ -3411,14 +3338,9 @@ export const Preview: React.FC = () => {
     settings.height,
   ]);
 
-  // Track the last modifiedAt to detect actual project changes vs transform-only changes
   const lastModifiedAtRef = useRef<number>(project.modifiedAt);
 
-  // Render frame to canvas when not playing (scrubbing or stopped)
-  // During playback, frames are rendered by the animation loop
-  // Also re-render when project changes (effects, transforms, etc.)
   useEffect(() => {
-    // Skip rendering during playback - handled by animation loop
     if (isPlaying) return;
 
     // COMPLETELY skip rendering during resize/move interactions
@@ -3432,16 +3354,9 @@ export const Preview: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Canvas size is set by the dedicated effect - don't change it here
-    // to prevent flickering during resize/move interactions
-
-    // Try to render the frame
     const renderFrame = async () => {
-      // Use renderFrameDirectly for correct overlay layering
-      // RenderBridge/VideoEngine doesn't support the track-order-based overlay layering yet
       const rendered = await renderFrameDirectly(playheadPosition);
       if (!rendered) {
-        // Show placeholder
         renderFallbackFrame(playheadPosition);
       }
     };
@@ -3456,13 +3371,11 @@ export const Preview: React.FC = () => {
     isDark,
   ]);
 
-  // Get the currently selected clip for canvas interaction
   const selectedClipId = useMemo(() => {
     const clipSelection = selectedItems.find((item) => item.type === "clip");
     return clipSelection?.id || null;
   }, [selectedItems]);
 
-  // Get the selected clip data
   const selectedClip = useMemo(() => {
     if (!selectedClipId) return null;
     for (const track of timelineTracks) {
@@ -3472,7 +3385,6 @@ export const Preview: React.FC = () => {
     return null;
   }, [selectedClipId, timelineTracks]);
 
-  // Find clip at current playhead position for selection
   const clipAtPlayhead = useMemo(() => {
     const videoTracks = timelineTracks.filter(
       (t) => (t.type === "video" || t.type === "image") && !t.hidden,
@@ -3489,7 +3401,6 @@ export const Preview: React.FC = () => {
     return null;
   }, [timelineTracks, playheadPosition]);
 
-  // Check if the selected item is a text clip
   const selectedTextClipId = useMemo(() => {
     const textClipSelection = selectedItems.find(
       (item) => item.type === "text-clip",
@@ -3497,17 +3408,13 @@ export const Preview: React.FC = () => {
     return textClipSelection?.id || null;
   }, [selectedItems]);
 
-  // Get the selected text clip data
   const selectedTextClip = useMemo<TextClip | null>(() => {
     if (!selectedTextClipId) return null;
     return allTextClips.find((clip) => clip.id === selectedTextClipId) || null;
   }, [selectedTextClipId, allTextClips]);
 
-  // Active text clip is only the explicitly selected text clip (not playhead fallback)
-  // This prevents accidentally moving items behind other items
   const activeTextClip = selectedTextClip;
 
-  // Calculate clip bounds on canvas for resize handles
   const clipBounds = useMemo(() => {
     const clip = selectedClip || clipAtPlayhead;
     if (!clip || !canvasRef.current || !overlayRef.current) return null;
@@ -3517,7 +3424,6 @@ export const Preview: React.FC = () => {
     const overlayRect = overlay.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
 
-    // Get transform from clip, but use live transform during interaction for immediate feedback
     const clipTransform = clip.transform || {
       position: { x: 0, y: 0 },
       scale: { x: 1, y: 1 },
@@ -3526,7 +3432,6 @@ export const Preview: React.FC = () => {
       anchor: { x: 0.5, y: 0.5 },
     };
 
-    // Merge live transform if we're interacting
     const transform = liveTransform
       ? {
           ...clipTransform,
@@ -3535,23 +3440,17 @@ export const Preview: React.FC = () => {
         }
       : clipTransform;
 
-    // Calculate the clip's position and size on the canvas
-    // Position is in pixels relative to canvas center
     const canvasWidth = settings.width;
     const canvasHeight = settings.height;
 
-    // Scale factor from project resolution to displayed canvas
     const displayScale = canvasRect.width / canvasWidth;
 
-    // Clip dimensions (full canvas by default, scaled by transform)
     const clipWidth = canvasWidth * transform.scale.x * displayScale;
     const clipHeight = canvasHeight * transform.scale.y * displayScale;
 
-    // Position offset from center (transform.position is in pixels)
     const offsetX = transform.position.x * displayScale;
     const offsetY = transform.position.y * displayScale;
 
-    // Calculate top-left corner relative to overlay
     const canvasOffsetX = canvasRect.left - overlayRect.left;
     const canvasOffsetY = canvasRect.top - overlayRect.top;
 
@@ -3573,10 +3472,9 @@ export const Preview: React.FC = () => {
     settings.width,
     settings.height,
     canvasSize,
-    liveTransform, // Include live transform for immediate visual feedback during interaction
+    liveTransform,
   ]);
 
-  // Calculate text clip bounds on canvas for resize handles
   const textClipBounds = useMemo(() => {
     if (!selectedTextClip || !canvasRef.current || !overlayRef.current)
       return null;
@@ -3638,8 +3536,6 @@ export const Preview: React.FC = () => {
     );
   }, [selectedShapeClipId, allShapeClips]);
 
-  // Active shape clip is only the explicitly selected shape clip (not playhead fallback)
-  // This prevents accidentally moving items behind other items
   const activeShapeClip = selectedShapeClip;
 
   const shapeClipBounds = useMemo(() => {
@@ -3682,7 +3578,6 @@ export const Preview: React.FC = () => {
     };
   }, [selectedShapeClip, settings.width, settings.height, canvasSize]);
 
-  // Check if the selected item is a subtitle
   const selectedSubtitleId = useMemo(() => {
     const subtitleSelection = selectedItems.find(
       (item) => item.type === "subtitle",
@@ -3690,13 +3585,11 @@ export const Preview: React.FC = () => {
     return subtitleSelection?.id || null;
   }, [selectedItems]);
 
-  // Get the selected subtitle data
   const selectedSubtitleObj = useMemo<Subtitle | null>(() => {
     if (!selectedSubtitleId) return null;
     return allSubtitles.find((sub) => sub.id === selectedSubtitleId) || null;
   }, [selectedSubtitleId, allSubtitles]);
 
-  // Calculate subtitle bounds for selection overlay
   const subtitleBounds = useMemo(() => {
     if (!selectedSubtitleObj || !canvasRef.current || !overlayRef.current)
       return null;
@@ -3756,7 +3649,6 @@ export const Preview: React.FC = () => {
     playheadPosition,
   ]);
 
-  // Handle mouse down on resize handle
   const handleHandleMouseDown = useCallback(
     (e: React.MouseEvent, handle: HandlePosition) => {
       e.stopPropagation();
@@ -3773,7 +3665,6 @@ export const Preview: React.FC = () => {
         anchor: { x: 0.5, y: 0.5 },
       };
 
-      // Mark as interacting to prevent re-renders during resize
       isInteractingRef.current = true;
       setInteractionMode("resize");
       setActiveHandle(handle);
@@ -3791,7 +3682,6 @@ export const Preview: React.FC = () => {
     [selectedClip, clipAtPlayhead],
   );
 
-  // Handle mouse down on clip area for move
   const handleClipMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -3808,7 +3698,6 @@ export const Preview: React.FC = () => {
         anchor: { x: 0.5, y: 0.5 },
       };
 
-      // Mark as interacting to prevent re-renders during move
       isInteractingRef.current = true;
       setInteractionMode("move");
       interactionStartRef.current = {
@@ -3825,7 +3714,6 @@ export const Preview: React.FC = () => {
     [selectedClip, clipAtPlayhead],
   );
 
-  // Handle mouse down on text clip for move
   const handleTextClipMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -3853,7 +3741,6 @@ export const Preview: React.FC = () => {
     [activeTextClip],
   );
 
-  // Handle mouse down on text clip resize handle
   const handleTextHandleMouseDown = useCallback(
     (e: React.MouseEvent, handle: HandlePosition) => {
       e.stopPropagation();
@@ -3937,12 +3824,10 @@ export const Preview: React.FC = () => {
     [activeShapeClip],
   );
 
-  // Handle mouse move for resize/move - uses RAF for smooth updates
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (interactionMode === "none" || !interactionStartRef.current) return;
 
-      // Handle text clip interaction
       if (
         interactionTargetType === "text-clip" &&
         textClipBounds &&
@@ -4018,7 +3903,6 @@ export const Preview: React.FC = () => {
         return;
       }
 
-      // Handle shape clip interaction
       if (
         interactionTargetType === "shape-clip" &&
         shapeClipBounds &&
@@ -4097,7 +3981,6 @@ export const Preview: React.FC = () => {
         return;
       }
 
-      // Handle video clip interaction
       if (!clipBounds) return;
       const clip = selectedClip || clipAtPlayhead;
       if (!clip) return;
@@ -4112,7 +3995,6 @@ export const Preview: React.FC = () => {
       } = {};
 
       if (interactionMode === "move") {
-        // Convert screen delta to project coordinates
         const newX =
           interactionStartRef.current.transform.x + deltaX / displayScale;
         const newY =
@@ -4126,7 +4008,6 @@ export const Preview: React.FC = () => {
         let newX = startTransform.x;
         let newY = startTransform.y;
 
-        // Calculate scale change based on handle position
         const scaleDeltaX = deltaX / displayScale / (settings.width / 2);
         const scaleDeltaY = deltaY / displayScale / (settings.height / 2);
 
@@ -4201,13 +4082,11 @@ export const Preview: React.FC = () => {
         };
       }
 
-      // Store pending transform for final update
       pendingTransformRef.current = {
         clipId: clip.id,
         transform: newTransform,
       };
 
-      // Update live transform immediately for smooth visual feedback on the overlay
       const currentTransform = clip.transform || {
         position: { x: 0, y: 0 },
         scale: { x: 1, y: 1 },
@@ -4217,7 +4096,6 @@ export const Preview: React.FC = () => {
         scale: newTransform.scale || currentTransform.scale,
       });
 
-      // Throttle store updates to reduce re-render frequency
       if (!rafIdRef.current) {
         rafIdRef.current = requestAnimationFrame(() => {
           const now = performance.now();
@@ -4252,9 +4130,7 @@ export const Preview: React.FC = () => {
     ],
   );
 
-  // Handle mouse up to end interaction
   const handleMouseUp = useCallback(() => {
-    // Apply any pending transform
     if (pendingTransformRef.current) {
       updateClipTransform(
         pendingTransformRef.current.clipId,
@@ -4269,22 +4145,18 @@ export const Preview: React.FC = () => {
       rafIdRef.current = null;
     }
 
-    // Clear interaction state
     const wasInteracting = isInteractingRef.current;
     isInteractingRef.current = false;
     setInteractionMode("none");
     setActiveHandle(null);
     interactionStartRef.current = null;
-    setLiveTransform(null); // Clear live transform
+    setLiveTransform(null);
 
-    // Trigger a re-render now that interaction is complete
-    // This ensures the final frame is rendered with the new transform
     if (wasInteracting) {
       renderFrameDirectly(playheadPosition);
     }
   }, [updateClipTransform, renderFrameDirectly, playheadPosition]);
 
-  // Crop callbacks
   const handleCropChange = useCallback(
     (crop: { x: number; y: number; width: number; height: number }) => {
       if (cropClipId) {
@@ -4302,7 +4174,6 @@ export const Preview: React.FC = () => {
     setCropMode(false);
   }, [setCropMode]);
 
-  // Add global mouse up listener when interacting
   useEffect(() => {
     if (interactionMode !== "none") {
       const handleGlobalMouseUp = () => {
@@ -4340,7 +4211,6 @@ export const Preview: React.FC = () => {
     updateClipTransform,
   ]);
 
-  // Handle scrub bar click - use actual end time for seeking
   const handleScrubClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -4352,7 +4222,6 @@ export const Preview: React.FC = () => {
     [actualEndTime, seekTo],
   );
 
-  // Skip forward/backward
   const handleSkipBack = useCallback(() => {
     seekRelative(-5);
   }, [seekRelative]);
@@ -4400,21 +4269,16 @@ export const Preview: React.FC = () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Progress percentage based on actual content duration
   const progressPercentage =
     actualEndTime > 0 ? (playheadPosition / actualEndTime) * 100 : 0;
 
-  // Determine if we should show resize handles for video clips (only when explicitly selected)
   const showResizeHandles = !isPlaying && selectedClip && clipBounds;
 
-  // Determine if we should show resize handles for text clips (only when explicitly selected)
   const showTextClipHandles = !isPlaying && selectedTextClip && textClipBounds;
 
-  // Determine if we should show resize handles for shape clips (only when explicitly selected)
   const showShapeClipHandles =
     !isPlaying && selectedShapeClip && shapeClipBounds;
 
-  // Determine if we should show selection overlay for subtitles
   const showSubtitleOverlay =
     !isPlaying && selectedSubtitleObj && subtitleBounds;
 

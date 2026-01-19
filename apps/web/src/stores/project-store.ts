@@ -2466,7 +2466,7 @@ export const useProjectStore = create<ProjectState>()(
 
       addMarker: (time, label = "Marker", color = "#3b82f6") => {
         const newMarker: import("@openreel/core").Marker = {
-          id: `marker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `marker-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           time,
           label,
           color,

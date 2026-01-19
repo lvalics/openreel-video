@@ -239,7 +239,7 @@ export function validateNoiseReduction(
 export function createEQEffect(bands: EQBandConfig[]): Effect {
   const validatedBands = bands.map(validateEQBand);
   return {
-    id: `eq-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `eq-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     type: "eq",
     params: { bands: validatedBands } as unknown as Record<string, unknown>,
     enabled: true,
@@ -257,7 +257,7 @@ export function createEQEffect(bands: EQBandConfig[]): Effect {
 export function createCompressorEffect(config: CompressorConfig): Effect {
   const validated = validateCompressor(config);
   return {
-    id: `compressor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `compressor-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     type: "compressor",
     params: validated as unknown as Record<string, unknown>,
     enabled: true,
@@ -275,7 +275,7 @@ export function createCompressorEffect(config: CompressorConfig): Effect {
 export function createReverbEffect(config: ReverbConfig): Effect {
   const validated = validateReverb(config);
   return {
-    id: `reverb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `reverb-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     type: "reverb",
     params: validated as unknown as Record<string, unknown>,
     enabled: true,
@@ -293,7 +293,7 @@ export function createReverbEffect(config: ReverbConfig): Effect {
 export function createDelayEffect(config: DelayConfig): Effect {
   const validated = validateDelay(config);
   return {
-    id: `delay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `delay-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     type: "delay",
     params: validated as unknown as Record<string, unknown>,
     enabled: true,
@@ -315,7 +315,7 @@ export function createNoiseReductionEffect(
   return {
     id: `noiseReduction-${Date.now()}-${Math.random()
       .toString(36)
-      .substr(2, 9)}`,
+      .slice(2, 11)}`,
     type: "noiseReduction",
     params: validated as unknown as Record<string, unknown>,
     enabled: true,
@@ -694,7 +694,7 @@ export class AudioBridgeEffects {
 
     const id =
       profileId ??
-      `noise-profile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      `noise-profile-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     const profile = await this.audioEffectsEngine.learnNoiseProfile(buffer, id);
 

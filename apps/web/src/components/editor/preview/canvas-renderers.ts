@@ -616,7 +616,6 @@ export const renderTextClipToCanvas = (
       threeJSRenderer = new ThreeJSLayerRenderer(canvasWidth, canvasHeight);
     }
 
-    // Resize renderer if canvas dimensions changed
     if (
       threeJSRenderer.canvas.width !== canvasWidth ||
       threeJSRenderer.canvas.height !== canvasHeight
@@ -905,11 +904,9 @@ const renderSVGClip = (
 
     switch (entryAnimation.type) {
       case "fade":
-        // Opacity transitions from 0 to current value over entry duration
         animationOpacity *= eased;
         break;
       case "scale":
-        // Scale grows from 0 to full size
         const scale = eased;
         animationScale = {
           x: animationScale.x * scale,
@@ -1704,10 +1701,25 @@ export const drawFrameWithTransform = (
   canvasWidth: number,
   canvasHeight: number,
 ): void => {
-  const t = transform || DEFAULT_TRANSFORM;
+  const t: ClipTransform = {
+    ...DEFAULT_TRANSFORM,
+    ...transform,
+    position: {
+      x: transform?.position?.x ?? DEFAULT_TRANSFORM.position.x,
+      y: transform?.position?.y ?? DEFAULT_TRANSFORM.position.y,
+    },
+    scale: {
+      x: transform?.scale?.x ?? DEFAULT_TRANSFORM.scale.x,
+      y: transform?.scale?.y ?? DEFAULT_TRANSFORM.scale.y,
+    },
+    anchor: {
+      x: transform?.anchor?.x ?? DEFAULT_TRANSFORM.anchor.x,
+      y: transform?.anchor?.y ?? DEFAULT_TRANSFORM.anchor.y,
+    },
+  };
 
   ctx.save();
-  ctx.globalAlpha = t.opacity;
+  ctx.globalAlpha = t.opacity ?? 1;
 
   const centerX = canvasWidth / 2;
   const centerY = canvasHeight / 2;
@@ -1735,11 +1747,9 @@ export const drawFrameWithTransform = (
   let drawHeight: number;
 
   if (sourceAspect > canvasAspect) {
-    // Source is wider: match canvas width
     drawWidth = canvasWidth;
     drawHeight = canvasWidth / sourceAspect;
   } else {
-    // Source is taller: match canvas height
     drawHeight = canvasHeight;
     drawWidth = canvasHeight * sourceAspect;
   }
@@ -1815,9 +1825,7 @@ export const applyEffectsToFrame = async (
           if (bgResult && bgResult.width > 0 && bgResult.height > 0) {
             processedFrame = bgResult;
           }
-        } catch {
-          // Keep using the current frame
-        }
+        } catch {}
       }
     }
 
@@ -1849,9 +1857,7 @@ export const applyEffectsToFrame = async (
         ) {
           processedFrame = effectsResult.image;
         }
-      } catch {
-        // Keep using the original frame
-      }
+      } catch {}
     }
 
     if (Object.keys(colorGrading).length > 0) {
@@ -1867,9 +1873,7 @@ export const applyEffectsToFrame = async (
         ) {
           processedFrame = colorGradingResult.image;
         }
-      } catch {
-        // Keep using the previous frame
-      }
+      } catch {}
     }
 
     return processedFrame;

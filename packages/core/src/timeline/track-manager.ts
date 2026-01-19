@@ -259,7 +259,7 @@ export function createTrack(
   name?: string,
 ): Track {
   return {
-    id: `track-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `track-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     type,
     name: name || `${type.charAt(0).toUpperCase() + type.slice(1)} Track`,
     clips: [],
@@ -274,14 +274,14 @@ export function createTrack(
 export function cloneTrack(track: Track): Track {
   return {
     ...track,
-    id: `track-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `track-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     clips: track.clips.map((clip) => ({
       ...clip,
-      id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     })),
     transitions: track.transitions.map((transition) => ({
       ...transition,
-      id: `transition-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `transition-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     })),
   };
 }

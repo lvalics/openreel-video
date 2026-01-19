@@ -238,7 +238,7 @@ export class TemplateEngine {
     variables: Variable[] = [],
   ): Template {
     return {
-      id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `template-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       name: metadata.name,
       description: metadata.description,
       category: metadata.category,

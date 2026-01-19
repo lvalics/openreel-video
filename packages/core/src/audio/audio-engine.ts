@@ -125,7 +125,6 @@ export class AudioEngine {
     );
     const hasSoloTracks = audioTracks.some((t) => t.solo);
     for (const trackInfo of audioTracks) {
-      // Skip muted tracks or non-soloed tracks when solo is active
       if (this.isTrackMuted(trackInfo, hasSoloTracks)) continue;
 
       for (const clipInfo of trackInfo.clips) {
@@ -282,12 +281,129 @@ export class AudioEngine {
       const arrayBuffer = await mediaItem.blob.arrayBuffer();
       const audioBuffer = await context.decodeAudioData(arrayBuffer);
 
-      // Cache the buffer
       this.mediaBuffers.set(mediaItem.id, audioBuffer);
+      return audioBuffer;
+    } catch (error) {
+      if (mediaItem.type === "video") {
+        try {
+          const audioBuffer = await this.extractAudioFromVideo(
+            mediaItem,
+            context,
+          );
+          if (audioBuffer) {
+            this.mediaBuffers.set(mediaItem.id, audioBuffer);
+            return audioBuffer;
+          }
+        } catch (videoError) {
+          // Video audio extraction failed
+        }
+      }
+      return null;
+    }
+  }
+
+  private async extractAudioFromVideo(
+    mediaItem: MediaItem,
+    context: BaseAudioContext,
+  ): Promise<AudioBuffer | null> {
+    if (!mediaItem.blob) return null;
+
+    try {
+      const mediabunny = await import("mediabunny");
+      const { Input, ALL_FORMATS, BlobSource, AudioSampleSink } = mediabunny;
+
+      const input = new Input({
+        source: new BlobSource(mediaItem.blob),
+        formats: ALL_FORMATS,
+      });
+
+      let audioTrack = await input.getPrimaryAudioTrack();
+      if (!audioTrack) {
+        const audioTracks = await input.getAudioTracks();
+        if (audioTracks.length > 0) {
+          audioTrack = audioTracks[0];
+        }
+      }
+
+      if (!audioTrack) {
+        input[Symbol.dispose]?.();
+        return null;
+      }
+
+      const canDecode = await audioTrack.canDecode();
+      if (!canDecode) {
+        input[Symbol.dispose]?.();
+        return null;
+      }
+
+      const duration = await audioTrack.computeDuration();
+      if (!duration || duration <= 0) {
+        input[Symbol.dispose]?.();
+        return null;
+      }
+
+      const sampleRate = context.sampleRate;
+      const channels = 2;
+      const samplesPerSecond = 1000;
+      const totalSamplePoints = Math.ceil(duration * samplesPerSecond);
+
+      const sink = new AudioSampleSink(audioTrack);
+      const timestamps = Array.from(
+        { length: totalSamplePoints },
+        (_, i) => i / samplesPerSecond,
+      );
+
+      const allSamples: Float32Array[] = [];
+
+      for await (const sample of sink.samplesAtTimestamps(timestamps)) {
+        if (!sample) {
+          allSamples.push(new Float32Array(0));
+          continue;
+        }
+        const bytesNeeded = sample.allocationSize({
+          format: "f32",
+          planeIndex: 0,
+        });
+        const floats = new Float32Array(bytesNeeded / 4);
+        sample.copyTo(floats, { format: "f32", planeIndex: 0 });
+        allSamples.push(floats);
+        sample.close();
+      }
+
+      input[Symbol.dispose]?.();
+
+      const totalFrames = Math.ceil(duration * sampleRate);
+      const leftChannel = new Float32Array(totalFrames);
+      const rightChannel = new Float32Array(totalFrames);
+
+      let frameIndex = 0;
+      for (const sampleData of allSamples) {
+        if (sampleData.length === 0) continue;
+        const numChannels = sampleData.length >= 2 ? 2 : 1;
+        const framesInSample = Math.floor(sampleData.length / numChannels);
+
+        for (let i = 0; i < framesInSample && frameIndex < totalFrames; i++) {
+          if (numChannels === 2) {
+            leftChannel[frameIndex] = sampleData[i * 2] || 0;
+            rightChannel[frameIndex] = sampleData[i * 2 + 1] || 0;
+          } else {
+            leftChannel[frameIndex] = sampleData[i] || 0;
+            rightChannel[frameIndex] = sampleData[i] || 0;
+          }
+          frameIndex++;
+        }
+      }
+
+      if (frameIndex === 0) {
+        return null;
+      }
+
+      const audioBuffer = context.createBuffer(channels, frameIndex, sampleRate);
+      audioBuffer.copyToChannel(leftChannel.subarray(0, frameIndex), 0);
+      audioBuffer.copyToChannel(rightChannel.subarray(0, frameIndex), 1);
 
       return audioBuffer;
     } catch (error) {
-      console.warn(`Failed to decode audio for media ${mediaItem.id}:`, error);
       return null;
     }
   }

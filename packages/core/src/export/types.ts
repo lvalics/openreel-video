@@ -167,23 +167,23 @@ export const VIDEO_QUALITY_PRESETS = {
   "1080p-high": {
     width: 1920,
     height: 1080,
-    bitrate: 20000,
+    bitrate: 25000,
     frameRate: 30,
     quality: 95,
   },
   "1080p": {
     width: 1920,
     height: 1080,
-    bitrate: 12000,
+    bitrate: 15000,
     frameRate: 30,
     quality: 85,
   },
   "1080p-60": {
     width: 1920,
     height: 1080,
-    bitrate: 18000,
+    bitrate: 24000,
     frameRate: 60,
-    quality: 85,
+    quality: 90,
   },
   "720p": {
     width: 1280,

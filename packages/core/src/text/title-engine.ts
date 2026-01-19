@@ -464,7 +464,7 @@ export class TitleEngine {
   }
 
   private generateId(): string {
-    return `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `text-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   }
 
   clear(): void {
