@@ -24,9 +24,13 @@ import { useThemeStore } from "../../stores/theme-store";
 import {
   getExportEngine,
   downloadBlob,
+  getDeviceProfile,
+  estimateExportTime,
   type VideoExportSettings,
   type AudioExportSettings,
   type ExportResult,
+  type DeviceProfile,
+  type TimeEstimate,
 } from "@openreel/core";
 import { ExportDialog } from "./ExportDialog";
 import { ScreenRecorder } from "./ScreenRecorder";
@@ -79,6 +83,8 @@ export const Toolbar: React.FC = () => {
     error: null,
     complete: false,
   });
+  const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
+  const [exportEstimates, setExportEstimates] = useState<Map<string, TimeEstimate>>(new Map());
 
   useEffect(() => {
     setGlobalExportState({
@@ -87,6 +93,45 @@ export const Toolbar: React.FC = () => {
       phase: exportState.phase,
     });
   }, [exportState.isExporting, exportState.progress, exportState.phase, setGlobalExportState]);
+
+  useEffect(() => {
+    if (isExportOpen && !deviceProfile) {
+      getDeviceProfile().then(setDeviceProfile);
+    }
+  }, [isExportOpen, deviceProfile]);
+
+  useEffect(() => {
+    if (!deviceProfile || !project.timeline?.duration) {
+      return;
+    }
+
+    const duration = project.timeline.duration;
+    const estimates = new Map<string, TimeEstimate>();
+
+    const configs: Array<{ key: string; width: number; height: number; frameRate: number; codec: "h264" | "h265" | "vp9" | "av1" }> = [
+      { key: "mp4", width: project.settings.width, height: project.settings.height, frameRate: 30, codec: "h264" },
+      { key: "4k", width: 3840, height: 2160, frameRate: 30, codec: "h264" },
+      { key: "4k-60-master", width: 3840, height: 2160, frameRate: 60, codec: "h264" },
+      { key: "4k-master", width: 3840, height: 2160, frameRate: 30, codec: "h264" },
+      { key: "1080p-high", width: 1920, height: 1080, frameRate: 30, codec: "h264" },
+      { key: "1080p-60", width: 1920, height: 1080, frameRate: 60, codec: "h264" },
+      { key: "prores", width: project.settings.width, height: project.settings.height, frameRate: 30, codec: "h264" },
+    ];
+
+    for (const config of configs) {
+      const estimate = estimateExportTime(deviceProfile, {
+        width: config.width,
+        height: config.height,
+        frameRate: config.frameRate,
+        duration,
+        codec: config.codec,
+      });
+      estimates.set(config.key, estimate);
+    }
+
+    setExportEstimates(estimates);
+  }, [deviceProfile, project.timeline?.duration, project.settings.width, project.settings.height]);
+
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = useCallback(() => {
@@ -939,6 +984,11 @@ export const Toolbar: React.FC = () => {
                             <div className="text-xs text-text-muted mt-0.5">
                               {option.desc}
                             </div>
+                            {exportEstimates.get(option.type) && (
+                              <div className="text-[10px] text-text-secondary mt-1">
+                                Est. {exportEstimates.get(option.type)?.formatted}
+                              </div>
+                            )}
                           </div>
                         </button>
                       ),

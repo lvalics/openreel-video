@@ -193,12 +193,11 @@ describe("DeviceCapabilities", () => {
   });
 
   describe("formatDeviceSummary", () => {
-    it("should format device summary with GPU, cores, and RAM", () => {
+    it("should format device summary with GPU and cores", () => {
       const profile = createMockProfile();
       const summary = formatDeviceSummary(profile);
 
       expect(summary).toContain("8 cores");
-      expect(summary).toContain("16GB RAM");
     });
 
     it("should include GPU name when available", () => {

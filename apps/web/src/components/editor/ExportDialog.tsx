@@ -760,23 +760,22 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             </div>
 
             {showDeviceInfo && (
-              <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-4 gap-4 text-[10px]">
+              <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-4 text-[10px]">
                 <div>
                   <span className="text-text-muted">CPU</span>
                   <p className="text-text-primary font-medium">
-                    {deviceProfile.cpu.cores} cores ({deviceProfile.cpu.tier})
-                  </p>
-                </div>
-                <div>
-                  <span className="text-text-muted">Memory</span>
-                  <p className="text-text-primary font-medium">
-                    {deviceProfile.memory.gb}GB ({deviceProfile.memory.tier})
+                    {deviceProfile.cpu.cores} cores
                   </p>
                 </div>
                 <div>
                   <span className="text-text-muted">GPU</span>
                   <p className="text-text-primary font-medium truncate" title={deviceProfile.gpu.renderer}>
-                    {deviceProfile.gpu.hasHardwareEncoding ? "HW Encode ✓" : "Software only"}
+                    {deviceProfile.gpu.renderer !== "Unknown"
+                      ? deviceProfile.gpu.renderer.replace(/ANGLE \(|, .*\)/g, "").replace(/Direct3D11.*$/g, "").trim()
+                      : "Unknown"}
+                  </p>
+                  <p className="text-[9px] text-text-muted">
+                    {deviceProfile.gpu.hasHardwareEncoding ? "HW Encode" : "Software only"}
                   </p>
                 </div>
                 <div>

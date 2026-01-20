@@ -242,8 +242,7 @@ function calculateOverallTier(
 
 export async function detectDeviceCapabilities(): Promise<DeviceProfile> {
   const cores = navigator.hardwareConcurrency || 4;
-  const memory = (navigator as unknown as { deviceMemory?: number })
-    .deviceMemory || 4;
+  const memory = (navigator as unknown as { deviceMemory?: number }).deviceMemory || 4;
 
   const cpu: CpuInfo = { cores, tier: getCpuTier(cores) };
   const memoryInfo: MemoryInfo = { gb: memory, tier: getMemoryTier(memory) };
@@ -440,7 +439,6 @@ export function formatDeviceSummary(profile: DeviceProfile): string {
   }
 
   parts.push(`${profile.cpu.cores} cores`);
-  parts.push(`${profile.memory.gb}GB RAM`);
 
   return parts.join(" · ");
 }
