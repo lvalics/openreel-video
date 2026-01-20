@@ -485,48 +485,54 @@ export const Toolbar: React.FC = () => {
   );
 
   const projectRes = `${project.settings.width}×${project.settings.height}`;
+  const aspectRatio = project.settings.width / project.settings.height;
+  const isVertical = aspectRatio < 0.9;
+  const isSquare = aspectRatio >= 0.9 && aspectRatio <= 1.1;
+
+  const getRecommendedLabel = () => {
+    if (isVertical) return "TikTok / Reels / Shorts";
+    if (isSquare) return "Instagram Feed";
+    return "YouTube / Social";
+  };
+
   const exportOptions: Array<{
     label: string;
     icon: typeof FileVideo;
     desc: string;
     type: ExportType;
+    recommended?: boolean;
+    separator?: boolean;
   }> = [
+    {
+      label: getRecommendedLabel(),
+      icon: Sparkles,
+      desc: `${projectRes} H.264 - Best for your video`,
+      type: "mp4",
+      recommended: true,
+    },
     {
       label: "Project Resolution",
       icon: Film,
-      desc: `${projectRes} ProRes - Highest quality`,
+      desc: `${projectRes} H.264 - High quality`,
       type: "project",
     },
     {
-      label: "4K 60fps Master",
+      label: "",
       icon: Film,
-      desc: "3840×2160 H.265 - Ultra smooth",
-      type: "4k-60-master",
+      desc: "",
+      type: "mp4",
+      separator: true,
     },
-    {
-      label: "4K Master (H.265)",
-      icon: Film,
-      desc: "3840×2160 30fps - Maximum quality",
-      type: "4k-master",
-    },
-    {
-      label: "4K ProRes HQ",
-      icon: Film,
-      desc: "3840×2160 - Professional grade",
-      type: "4k-prores",
-    },
-    {
-      label: "4K Standard",
-      icon: FileVideo,
-      desc: "3840×2160 - YouTube 4K",
-      type: "4k",
-    },
-    {
-      label: "1080p 60fps High",
-      icon: FileVideo,
-      desc: "1920×1080 - Smooth playback",
-      type: "1080p-60",
-    },
+    ...(isVertical
+      ? []
+      : [
+          {
+            label: "4K Standard",
+            icon: FileVideo,
+            desc: "3840×2160 - YouTube 4K",
+            type: "4k" as ExportType,
+          },
+        ]),
     {
       label: "1080p High Quality",
       icon: FileVideo,
@@ -534,22 +540,16 @@ export const Toolbar: React.FC = () => {
       type: "1080p-high",
     },
     {
-      label: "MP4 (H.264)",
+      label: "1080p 60fps",
+      icon: FileVideo,
+      desc: "1920×1080 - Smooth playback",
+      type: "1080p-60",
+    },
+    {
+      label: "MP4 Standard",
       icon: FileVideo,
       desc: `${projectRes} - Web & social`,
       type: "mp4",
-    },
-    {
-      label: "ProRes 422 HQ",
-      icon: Film,
-      desc: `${projectRes} - Editing master`,
-      type: "prores",
-    },
-    {
-      label: "WebM (VP9)",
-      icon: Film,
-      desc: `${projectRes} - Short loops`,
-      type: "gif",
     },
     {
       label: "Audio Only (WAV)",
@@ -785,26 +785,54 @@ export const Toolbar: React.FC = () => {
 
               {isExportOpen && (
                 <div className="absolute top-full right-0 mt-2 w-72 bg-background-secondary border border-border rounded-xl shadow-2xl overflow-hidden z-50">
-                  <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
-                    {exportOptions.map((option) => (
-                      <button
-                        key={option.type}
-                        className="w-full flex items-center gap-3 p-3 hover:bg-background-tertiary rounded-lg transition-colors text-left group"
-                        onClick={() => handleExport(option.type)}
-                      >
-                        <div className="p-2 bg-background-tertiary group-hover:bg-background-elevated rounded-lg text-text-secondary group-hover:text-primary transition-colors">
-                          <option.icon size={18} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors">
-                            {option.label}
+                  <div className="p-3 space-y-1 max-h-[400px] overflow-y-auto">
+                    {exportOptions.map((option, index) =>
+                      option.separator ? (
+                        <div
+                          key={`sep-${index}`}
+                          className="border-t border-border my-2"
+                        />
+                      ) : (
+                        <button
+                          key={option.type + index}
+                          className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group ${
+                            option.recommended
+                              ? "bg-primary/10 hover:bg-primary/20 border border-primary/30"
+                              : "hover:bg-background-tertiary"
+                          }`}
+                          onClick={() => handleExport(option.type)}
+                        >
+                          <div
+                            className={`p-2 rounded-lg transition-colors ${
+                              option.recommended
+                                ? "bg-primary/20 text-primary"
+                                : "bg-background-tertiary group-hover:bg-background-elevated text-text-secondary group-hover:text-primary"
+                            }`}
+                          >
+                            <option.icon size={18} />
                           </div>
-                          <div className="text-xs text-text-muted mt-0.5">
-                            {option.desc}
+                          <div className="flex-1">
+                            <div
+                              className={`text-sm font-medium transition-colors ${
+                                option.recommended
+                                  ? "text-primary"
+                                  : "text-text-primary group-hover:text-primary"
+                              }`}
+                            >
+                              {option.label}
+                              {option.recommended && (
+                                <span className="ml-2 text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">
+                                  Best Match
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-text-muted mt-0.5">
+                              {option.desc}
+                            </div>
                           </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      ),
+                    )}
 
                     <div className="border-t border-border pt-2 mt-2">
                       <button
