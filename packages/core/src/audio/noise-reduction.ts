@@ -1,3 +1,6 @@
+import { FFT } from "./fft";
+import { WasmFFT, getWasmFFT, initWasmFFT } from "../wasm/fft";
+
 export interface NoiseProfile {
   readonly frequencyBins: Float32Array;
   readonly magnitudes: Float32Array;
@@ -27,11 +30,28 @@ export class SpectralNoiseReducer {
   private noiseProfile: NoiseProfile | null = null;
   private fftSize: number;
   private hopSize: number;
+  private fft: FFT | WasmFFT;
+  private wasmInitialized: boolean = false;
 
   constructor(config: Partial<NoiseReductionConfig> = {}) {
     this.config = { ...DEFAULT_NOISE_REDUCTION_CONFIG, ...config };
     this.fftSize = 2048;
-    this.hopSize = this.fftSize / 4; // 75% overlap
+    this.hopSize = this.fftSize / 4;
+    this.fft = getWasmFFT(this.fftSize);
+    this.initWasm();
+  }
+
+  private async initWasm(): Promise<void> {
+    if (this.wasmInitialized) return;
+    try {
+      await initWasmFFT();
+      if (this.fft instanceof WasmFFT) {
+        await this.fft.ensureWasm();
+      }
+      this.wasmInitialized = true;
+    } catch {
+      this.wasmInitialized = false;
+    }
   }
 
   learnNoiseProfile(noiseBuffer: AudioBuffer): NoiseProfile {
@@ -91,8 +111,12 @@ export class SpectralNoiseReducer {
 
   setNoiseProfile(profile: NoiseProfile): void {
     this.noiseProfile = profile;
-    this.fftSize = profile.fftSize;
-    this.hopSize = this.fftSize / 4;
+    if (this.fftSize !== profile.fftSize) {
+      this.fftSize = profile.fftSize;
+      this.hopSize = this.fftSize / 4;
+      this.fft = getWasmFFT(this.fftSize);
+      this.initWasm();
+    }
   }
 
   async processBuffer(
@@ -167,48 +191,16 @@ export class SpectralNoiseReducer {
   }
 
   private computeMagnitudeSpectrum(frame: Float32Array): Float32Array {
-    const halfFFT = this.fftSize / 2;
-    const magnitudes = new Float32Array(halfFFT);
-
-    for (let k = 0; k < halfFFT; k++) {
-      let real = 0;
-      let imag = 0;
-
-      for (let n = 0; n < this.fftSize; n++) {
-        const angle = (-2 * Math.PI * k * n) / this.fftSize;
-        real += frame[n] * Math.cos(angle);
-        imag += frame[n] * Math.sin(angle);
-      }
-
-      magnitudes[k] = Math.sqrt(real * real + imag * imag);
-    }
-
-    return magnitudes;
+    const { real, imag } = this.fft.forward(frame);
+    return this.fft.getMagnitude(real, imag);
   }
 
   private computeSpectrum(frame: Float32Array): {
     magnitudes: Float32Array;
     phases: Float32Array;
   } {
-    const halfFFT = this.fftSize / 2;
-    const magnitudes = new Float32Array(halfFFT);
-    const phases = new Float32Array(halfFFT);
-
-    for (let k = 0; k < halfFFT; k++) {
-      let real = 0;
-      let imag = 0;
-
-      for (let n = 0; n < this.fftSize; n++) {
-        const angle = (-2 * Math.PI * k * n) / this.fftSize;
-        real += frame[n] * Math.cos(angle);
-        imag += frame[n] * Math.sin(angle);
-      }
-
-      magnitudes[k] = Math.sqrt(real * real + imag * imag);
-      phases[k] = Math.atan2(imag, real);
-    }
-
-    return { magnitudes, phases };
+    const { real, imag } = this.fft.forward(frame);
+    return this.fft.getMagnitudeAndPhase(real, imag);
   }
 
   private applySpectralSubtraction(magnitudes: Float32Array): Float32Array {
@@ -244,22 +236,9 @@ export class SpectralNoiseReducer {
     magnitudes: Float32Array,
     phases: Float32Array,
   ): Float32Array {
-    const frame = new Float32Array(this.fftSize);
-    const halfFFT = magnitudes.length;
-
-    for (let n = 0; n < this.fftSize; n++) {
-      let sample = 0;
-
-      for (let k = 0; k < halfFFT; k++) {
-        const angle = (2 * Math.PI * k * n) / this.fftSize + phases[k];
-        sample += magnitudes[k] * Math.cos(angle);
-      }
-      const window =
-        0.5 * (1 - Math.cos((2 * Math.PI * n) / (this.fftSize - 1)));
-      frame[n] = (sample * window * 2) / this.fftSize;
-    }
-
-    return frame;
+    const { real, imag } = this.fft.fromMagnitudeAndPhase(magnitudes, phases);
+    const timeDomain = this.fft.inverse(real, imag);
+    return this.fft.applySynthesisWindow(timeDomain);
   }
 
   setConfig(config: Partial<NoiseReductionConfig>): void {

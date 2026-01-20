@@ -23,6 +23,7 @@ import { graphicsEngine } from "../graphics/graphics-engine";
 import { UpscalingEngine, getUpscalingEngine } from "../video/upscaling";
 import { getMediaEngine } from "../media/mediabunny-engine";
 import { getFFmpegFallback } from "../media/ffmpeg-fallback";
+import { getWavEncoder } from "../wasm/wav";
 
 export class ExportEngine {
   private mediabunny: typeof import("mediabunny") | null = null;
@@ -1825,7 +1826,33 @@ export class ExportEngine {
     );
     const sampleRate = settings.sampleRate;
     const bitDepth = settings.bitDepth;
-    const bytesPerSample = bitDepth / 8;
+
+    if (bitDepth === 32) {
+      return this.encodeWav32Float(buffer, numberOfChannels, sampleRate);
+    }
+
+    const encoder = getWavEncoder();
+    const samples: Float32Array[] = [];
+    for (let ch = 0; ch < numberOfChannels; ch++) {
+      samples.push(buffer.getChannelData(ch));
+    }
+
+    const wavData = encoder.encodeFullWav(
+      samples,
+      sampleRate,
+      bitDepth as 16 | 24,
+    );
+
+    return new Blob([wavData.buffer as ArrayBuffer], { type: "audio/wav" });
+  }
+
+  private encodeWav32Float(
+    buffer: AudioBuffer,
+    numberOfChannels: number,
+    sampleRate: number,
+  ): Blob {
+    const bitDepth = 32;
+    const bytesPerSample = 4;
     const blockAlign = numberOfChannels * bytesPerSample;
     const byteRate = sampleRate * blockAlign;
     const dataLength = buffer.length * blockAlign;
@@ -1835,47 +1862,24 @@ export class ExportEngine {
     const arrayBuffer = new ArrayBuffer(totalLength);
     const view = new DataView(arrayBuffer);
 
-    // RIFF header
     this.writeString(view, 0, "RIFF");
     view.setUint32(4, totalLength - 8, true);
     this.writeString(view, 8, "WAVE");
-
-    // fmt chunk
     this.writeString(view, 12, "fmt ");
     view.setUint32(16, 16, true);
-    view.setUint16(20, bitDepth === 32 ? 3 : 1, true);
+    view.setUint16(20, 3, true);
     view.setUint16(22, numberOfChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, byteRate, true);
     view.setUint16(32, blockAlign, true);
     view.setUint16(34, bitDepth, true);
-
-    // data chunk
     this.writeString(view, 36, "data");
     view.setUint32(40, dataLength, true);
+
     let offset = 44;
     for (let i = 0; i < buffer.length; i++) {
       for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = buffer.getChannelData(channel)[i];
-
-        if (bitDepth === 16) {
-          const intSample = Math.max(
-            -32768,
-            Math.min(32767, Math.round(sample * 32767)),
-          );
-          view.setInt16(offset, intSample, true);
-        } else if (bitDepth === 24) {
-          const intSample = Math.max(
-            -8388608,
-            Math.min(8388607, Math.round(sample * 8388607)),
-          );
-          view.setUint8(offset, intSample & 0xff);
-          view.setUint8(offset + 1, (intSample >> 8) & 0xff);
-          view.setUint8(offset + 2, (intSample >> 16) & 0xff);
-        } else if (bitDepth === 32) {
-          view.setFloat32(offset, sample, true);
-        }
-
+        view.setFloat32(offset, buffer.getChannelData(channel)[i], true);
         offset += bytesPerSample;
       }
     }

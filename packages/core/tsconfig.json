@@ -10,5 +10,6 @@
       "@openreel/core/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/wasm/**/assembly"]
 }

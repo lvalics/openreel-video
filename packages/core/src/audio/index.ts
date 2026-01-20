@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./fft";
 export * from "./audio-engine";
 export * from "./realtime-processor";
 export * from "./audio-effects-engine";

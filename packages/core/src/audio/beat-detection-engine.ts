@@ -1,3 +1,9 @@
+import {
+  BeatDetectionProcessor,
+  getBeatDetectionProcessor,
+  initWasmBeatDetection,
+} from "../wasm/beat-detection";
+
 export interface Beat {
   readonly time: number;
   readonly strength: number;
@@ -31,9 +37,24 @@ export const DEFAULT_BEAT_DETECTION_CONFIG: BeatDetectionConfig = {
 export class BeatDetectionEngine {
   private config: BeatDetectionConfig;
   private audioContext: AudioContext | OfflineAudioContext | null = null;
+  private wasmProcessor: BeatDetectionProcessor;
+  private wasmInitialized: boolean = false;
 
   constructor(config: Partial<BeatDetectionConfig> = {}) {
     this.config = { ...DEFAULT_BEAT_DETECTION_CONFIG, ...config };
+    this.wasmProcessor = getBeatDetectionProcessor();
+    this.initWasm();
+  }
+
+  private async initWasm(): Promise<void> {
+    if (this.wasmInitialized) return;
+    try {
+      await initWasmBeatDetection();
+      await this.wasmProcessor.ensureWasm();
+      this.wasmInitialized = true;
+    } catch {
+      this.wasmInitialized = false;
+    }
   }
 
   async analyzeAudioBuffer(
@@ -85,25 +106,14 @@ export class BeatDetectionEngine {
     const onsets: number[] = [];
 
     const numFrames = Math.floor((samples.length - windowSize) / hopSize);
-    const energies: number[] = [];
+    const energiesF32 = new Float32Array(numFrames);
 
-    // Step 1: Compute RMS energy for each frame (hop-based windowing)
-    // RMS = sqrt(mean(samples^2)) is more perceptually relevant than peak amplitude
-    for (let i = 0; i < numFrames; i++) {
-      const start = i * hopSize;
-      let energy = 0;
+    this.wasmProcessor.computeRMSEnergies(samples, windowSize, hopSize, energiesF32);
 
-      for (let j = 0; j < windowSize; j++) {
-        const sample = samples[start + j];
-        energy += sample * sample;
-      }
+    const smoothedF32 = new Float32Array(numFrames);
+    this.wasmProcessor.smoothArray(energiesF32, smoothedF32, 5);
 
-      energy = Math.sqrt(energy / windowSize);
-      energies.push(energy);
-    }
-
-    // Step 2: Smooth energy curve to reduce noise while preserving transients
-    const smoothedEnergies = this.smoothArray(energies, 5);
+    const smoothedEnergies = Array.from(smoothedF32);
     // Step 3: Compute dynamic threshold based on local statistics and sensitivity
     const threshold = this.calculateAdaptiveThreshold(
       smoothedEnergies,
@@ -140,29 +150,6 @@ export class BeatDetectionEngine {
     return onsets;
   }
 
-  private smoothArray(arr: number[], windowSize: number): number[] {
-    const result: number[] = [];
-    const halfWindow = Math.floor(windowSize / 2);
-
-    for (let i = 0; i < arr.length; i++) {
-      let sum = 0;
-      let count = 0;
-
-      for (
-        let j = Math.max(0, i - halfWindow);
-        j <= Math.min(arr.length - 1, i + halfWindow);
-        j++
-      ) {
-        sum += arr[j];
-        count++;
-      }
-
-      result.push(sum / count);
-    }
-
-    return result;
-  }
-
   /**
    * Computes per-frame dynamic thresholds using local statistics.
    * Combines median (robust to outliers) and mean (captures overall level).
@@ -177,19 +164,14 @@ export class BeatDetectionEngine {
     const thresholds: number[] = [];
 
     for (let i = 0; i < energies.length; i++) {
-      // Collect local energy values for statistics
       const start = Math.max(0, i - medianWindowSize);
       const end = Math.min(energies.length, i + medianWindowSize);
-      const window = energies.slice(start, end).sort((a, b) => a - b);
+      const windowArr = new Float32Array(energies.slice(start, end));
 
-      // Median: robust to noise and outliers
-      const median = window[Math.floor(window.length / 2)];
-      // Mean: captures average energy level
-      const mean = window.reduce((a, b) => a + b, 0) / window.length;
+      const median = this.wasmProcessor.calculateMedian(windowArr);
+      const mean = this.wasmProcessor.calculateMean(windowArr);
 
-      // Blend median and mean: lower sensitivity = prefer median, higher = prefer mean
       const threshold = median + (mean - median) * (1 - sensitivity);
-      // Scale threshold based on sensitivity: lower sensitivity = higher threshold (fewer detections)
       thresholds.push(threshold * (1.5 - sensitivity * 0.5));
     }
 
