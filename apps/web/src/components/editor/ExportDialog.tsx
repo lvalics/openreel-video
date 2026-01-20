@@ -14,12 +14,29 @@ import {
   Video,
   Share2,
   Sparkles,
+  Cpu,
+  Gauge,
+  Zap,
+  CheckCircle,
+  Info,
 } from "lucide-react";
 import {
   exportPresetsManager,
   type PlatformExportPreset,
 } from "../../services/export-presets";
 import type { VideoExportSettings, UpscaleQuality } from "@openreel/core";
+import {
+  getDeviceProfile,
+  estimateExportTime,
+  runBenchmark,
+  getCodecRecommendations,
+  formatDeviceSummary,
+  shouldRecommendBenchmark,
+  type DeviceProfile,
+  type BenchmarkProgress,
+  type TimeEstimate,
+  type CodecRecommendation,
+} from "@openreel/core";
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -125,14 +142,74 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     },
   });
 
+  const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
+  const [timeEstimate, setTimeEstimate] = useState<TimeEstimate | null>(null);
+  const [codecRecommendations, setCodecRecommendations] = useState<CodecRecommendation[]>([]);
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [benchmarkProgress, setBenchmarkProgress] = useState<BenchmarkProgress | null>(null);
+  const [showDeviceInfo, setShowDeviceInfo] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setPresets(exportPresetsManager.getAllPresets());
       setPlatforms(exportPresetsManager.getPlatforms());
       setSelectedPlatform("recommended");
       setSelectedPreset(null);
+
+      getDeviceProfile().then((profile) => {
+        setDeviceProfile(profile);
+        setCodecRecommendations(
+          getCodecRecommendations(profile, { width: projectWidth, height: projectHeight })
+        );
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, projectWidth, projectHeight]);
+
+  useEffect(() => {
+    if (!deviceProfile || duration <= 0) {
+      setTimeEstimate(null);
+      return;
+    }
+
+    const settings =
+      activeTab === "presets" && selectedPreset
+        ? (selectedPreset.settings as VideoExportSettings)
+        : customSettings;
+
+    const estimate = estimateExportTime(deviceProfile, {
+      width: settings.width,
+      height: settings.height,
+      frameRate: settings.frameRate,
+      duration,
+      codec: settings.codec as "h264" | "h265" | "vp9" | "av1",
+    });
+
+    setTimeEstimate(estimate);
+  }, [deviceProfile, duration, activeTab, selectedPreset, customSettings]);
+
+  const handleRunBenchmark = useCallback(async () => {
+    if (isBenchmarking) return;
+
+    setIsBenchmarking(true);
+    setBenchmarkProgress(null);
+
+    try {
+      await runBenchmark((progress) => {
+        setBenchmarkProgress(progress);
+      });
+
+      const updatedProfile = await getDeviceProfile(true);
+      setDeviceProfile(updatedProfile);
+      setCodecRecommendations(
+        getCodecRecommendations(updatedProfile, { width: projectWidth, height: projectHeight })
+      );
+    } catch (error) {
+      console.error("Benchmark failed:", error);
+    } finally {
+      setIsBenchmarking(false);
+      setBenchmarkProgress(null);
+    }
+  }, [isBenchmarking, projectWidth, projectHeight]);
 
   const recommendedForVideo = getRecommendedPresetsForAspectRatio(
     presets,
@@ -631,6 +708,101 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           )}
         </div>
 
+        {deviceProfile && (
+          <div className="px-4 py-3 border-t border-border bg-background-tertiary/50">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowDeviceInfo(!showDeviceInfo)}
+                className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <Cpu size={12} />
+                <span>{formatDeviceSummary(deviceProfile)}</span>
+                <Info size={10} className="text-text-muted" />
+              </button>
+
+              {timeEstimate && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    {timeEstimate.confidence === "measured" ? (
+                      <CheckCircle size={12} className="text-green-500" />
+                    ) : (
+                      <Gauge size={12} className="text-yellow-500" />
+                    )}
+                    <span className="text-text-secondary">Est. time:</span>
+                    <span className="font-medium text-text-primary">
+                      {timeEstimate.formatted}
+                    </span>
+                  </div>
+
+                  {shouldRecommendBenchmark(deviceProfile) && !isBenchmarking && (
+                    <button
+                      onClick={handleRunBenchmark}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors"
+                    >
+                      <Zap size={10} />
+                      Get accurate estimate
+                    </button>
+                  )}
+
+                  {isBenchmarking && benchmarkProgress && (
+                    <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                      <div className="w-16 h-1 bg-background-tertiary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${benchmarkProgress.progress * 100}%` }}
+                        />
+                      </div>
+                      <span>Testing...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {showDeviceInfo && (
+              <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-4 gap-4 text-[10px]">
+                <div>
+                  <span className="text-text-muted">CPU</span>
+                  <p className="text-text-primary font-medium">
+                    {deviceProfile.cpu.cores} cores ({deviceProfile.cpu.tier})
+                  </p>
+                </div>
+                <div>
+                  <span className="text-text-muted">Memory</span>
+                  <p className="text-text-primary font-medium">
+                    {deviceProfile.memory.gb}GB ({deviceProfile.memory.tier})
+                  </p>
+                </div>
+                <div>
+                  <span className="text-text-muted">GPU</span>
+                  <p className="text-text-primary font-medium truncate" title={deviceProfile.gpu.renderer}>
+                    {deviceProfile.gpu.hasHardwareEncoding ? "HW Encode ✓" : "Software only"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-text-muted">Codecs</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {codecRecommendations.slice(0, 3).map((rec) => (
+                      <span
+                        key={rec.codec}
+                        className={`px-1 py-0.5 rounded text-[9px] ${
+                          rec.speedRating === "fast"
+                            ? "bg-green-500/20 text-green-400"
+                            : rec.speedRating === "medium"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-red-500/20 text-red-400"
+                        }`}
+                      >
+                        {rec.codec.toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between p-4 border-t border-border bg-background-tertiary">
           <div className="flex items-center gap-4 text-xs text-text-muted">
             {duration > 0 && (
@@ -649,6 +821,12 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     duration,
                   )}
                 </div>
+                {timeEstimate && deviceProfile?.encoding[customSettings.codec as keyof typeof deviceProfile.encoding]?.hardware && (
+                  <div className="flex items-center gap-1 text-green-500">
+                    <Zap size={12} />
+                    Hardware accelerated
+                  </div>
+                )}
               </>
             )}
           </div>
