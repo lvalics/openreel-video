@@ -142,10 +142,11 @@ export class ExportEngine {
       }
     }
 
-    for (const fallbackCodec of ["opus", "mp3"]) {
+    for (const fallbackCodec of ["aac", "mp3", "opus"]) {
       if (
         supportedCodecs.some((c: string) =>
-          String(c).toLowerCase().includes(fallbackCodec),
+          String(c).toLowerCase().includes(fallbackCodec) ||
+          (fallbackCodec === "aac" && String(c).toLowerCase().includes("mp4a")),
         )
       ) {
         for (const bitrate of bitrateFallbacks) {
@@ -230,6 +231,29 @@ export class ExportEngine {
       },
     };
 
+    const pixelCount = fullSettings.width * fullSettings.height;
+    const isMemoryIntensiveCodec =
+      fullSettings.codec === "vp9" ||
+      fullSettings.codec === "av1" ||
+      fullSettings.codec === "h265";
+    const maxSafePixels = isMemoryIntensiveCodec ? 1920 * 1080 : 3840 * 2160;
+
+    if (pixelCount > maxSafePixels && isMemoryIntensiveCodec) {
+      console.warn(
+        `[ExportEngine] ${fullSettings.codec.toUpperCase()} at ${fullSettings.width}x${fullSettings.height} may cause browser instability. Reducing to 1080p for stability.`,
+      );
+      const aspectRatio = fullSettings.width / fullSettings.height;
+      if (aspectRatio > 1) {
+        fullSettings.width = 1920;
+        fullSettings.height = Math.round(1920 / aspectRatio);
+      } else {
+        fullSettings.height = 1920;
+        fullSettings.width = Math.round(1920 * aspectRatio);
+      }
+      fullSettings.width = Math.round(fullSettings.width / 2) * 2;
+      fullSettings.height = Math.round(fullSettings.height / 2) * 2;
+    }
+
     this.abortController = new AbortController();
     this.currentExport = { startTime: Date.now(), framesRendered: 0 };
 
@@ -274,6 +298,7 @@ export class ExportEngine {
         AudioSample,
         getFirstEncodableVideoCodec,
         getFirstEncodableAudioCodec,
+        QUALITY_MEDIUM,
       } = this.mediabunny!;
       let outputFormat;
       switch (fullSettings.format) {
@@ -312,7 +337,7 @@ export class ExportEngine {
 
       const videoSource = new VideoSampleSource({
         codec: videoCodec,
-        bitrate: fullSettings.bitrate * 1000,
+        bitrate: QUALITY_MEDIUM,
         keyFrameInterval:
           fullSettings.keyframeInterval / fullSettings.frameRate,
         hardwareAcceleration: "prefer-hardware",
@@ -329,6 +354,12 @@ export class ExportEngine {
       });
 
       await output.start();
+
+      const isMemoryIntensiveCodec =
+        fullSettings.codec === "vp9" ||
+        fullSettings.codec === "av1" ||
+        fullSettings.codec === "h265";
+      const flushInterval = isMemoryIntensiveCodec ? 15 : 30;
 
       for (let frame = 0; frame < totalFrames; frame++) {
         if (this.abortController.signal.aborted) {
@@ -370,6 +401,10 @@ export class ExportEngine {
         frameImage.close();
 
         this.currentExport!.framesRendered = frame + 1;
+
+        if ((frame + 1) % flushInterval === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
 
         yield this.createProgress(
           "rendering",
@@ -847,27 +882,15 @@ export class ExportEngine {
         },
       },
       {
-        id: "web-vp9-4k",
-        name: "Web 4K (VP9)",
-        description: "4K WebM VP9 for web",
-        category: "web",
-        settings: {
-          ...DEFAULT_VIDEO_SETTINGS,
-          format: "webm",
-          codec: "vp9",
-          ...VIDEO_QUALITY_PRESETS["4k"],
-        },
-      },
-      {
         id: "web-vp9",
         name: "Web (VP9)",
-        description: "WebM VP9 for web embedding",
+        description: "WebM VP9 for web embedding (720p for stability)",
         category: "web",
         settings: {
           ...DEFAULT_VIDEO_SETTINGS,
           format: "webm",
           codec: "vp9",
-          ...VIDEO_QUALITY_PRESETS["1080p"],
+          ...VIDEO_QUALITY_PRESETS["720p"],
         },
       },
       {

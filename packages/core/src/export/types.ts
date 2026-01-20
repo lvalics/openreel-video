@@ -114,8 +114,8 @@ export const DEFAULT_VIDEO_SETTINGS: VideoExportSettings = {
   width: 1920,
   height: 1080,
   frameRate: 30,
-  bitrate: 8000, // 8 Mbps
-  bitrateMode: "vbr",
+  bitrate: 5000, // 5 Mbps - good quality for 1080p web video
+  bitrateMode: "cbr",
   quality: 80,
   keyframeInterval: 60, // 2 seconds at 30fps
   audioSettings: {

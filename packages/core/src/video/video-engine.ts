@@ -12,6 +12,7 @@ import type { ShapeClip, EmphasisAnimation } from "../graphics/types";
 import { titleEngine } from "../text/title-engine";
 import { graphicsEngine } from "../graphics/graphics-engine";
 import { VideoEffectsEngine } from "./video-effects-engine";
+import { getMediaEngine } from "../media/mediabunny-engine";
 import type {
   RenderedFrame,
   CompositeLayer,
@@ -223,8 +224,33 @@ export class VideoEngine {
   }
 
   /**
-   * Decode a frame using native video element (hardware-accelerated, reliable seeking).
-   * Better for export than MediaBunny's CanvasSink.
+   * Decode a frame using MediaBunny's WebCodecs-based decoder.
+   * Much faster than video element seeking for export.
+   */
+  async decodeFrameWithMediaBunny(
+    blob: Blob,
+    time: number,
+    width: number,
+    _height: number,
+  ): Promise<ImageBitmap | null> {
+    try {
+      const mediaEngine = getMediaEngine();
+      if (!mediaEngine.isAvailable()) {
+        await mediaEngine.initialize();
+      }
+      const result = await mediaEngine.getFrameAtTime(blob, time, width);
+      if (result?.canvas) {
+        return createImageBitmap(result.canvas);
+      }
+      return null;
+    } catch (error) {
+      console.warn("[VideoEngine] MediaBunny frame decode failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Decode a frame using native video element (fallback method).
    */
   async decodeFrameWithVideoElement(
     mediaId: string,
@@ -256,6 +282,7 @@ export class VideoEngine {
     const { video } = cached;
 
     video.currentTime = time;
+
     await new Promise<void>((resolve) => {
       let resolved = false;
       const onSeeked = () => {
@@ -265,7 +292,7 @@ export class VideoEngine {
         resolve();
       };
       video.addEventListener("seeked", onSeeked);
-      if (video.readyState >= 3) {
+      if (video.readyState >= 2) {
         onSeeked();
       }
       setTimeout(() => {
@@ -274,7 +301,7 @@ export class VideoEngine {
           video.removeEventListener("seeked", onSeeked);
           resolve();
         }
-      }, 5000);
+      }, 3000);
     });
 
     const canvas = new OffscreenCanvas(width, height);
@@ -399,13 +426,21 @@ export class VideoEngine {
               );
             }
           } else {
-            bitmap = await this.decodeFrameWithVideoElement(
-              mediaItem.id,
+            bitmap = await this.decodeFrameWithMediaBunny(
               mediaItem.blob,
               clipInfo.sourceTime,
               settings.width,
               settings.height,
             );
+            if (!bitmap) {
+              bitmap = await this.decodeFrameWithVideoElement(
+                mediaItem.id,
+                mediaItem.blob,
+                clipInfo.sourceTime,
+                settings.width,
+                settings.height,
+              );
+            }
           }
 
           if (bitmap) {
@@ -459,15 +494,20 @@ export class VideoEngine {
 
             let processedBitmap = bitmap;
             if (clip.effects && clip.effects.length > 0) {
-              if (!this.effectsEngine) {
-                this.effectsEngine = new VideoEffectsEngine({
-                  width,
-                  height,
-                  useGPU: false,
-                });
-                await this.effectsEngine.initialize();
-              }
               try {
+                if (!this.effectsEngine) {
+                  this.effectsEngine = new VideoEffectsEngine({
+                    width,
+                    height,
+                    useGPU: true,
+                    preferWebGPU: false,
+                  });
+                  const initPromise = this.effectsEngine.initialize();
+                  const timeoutPromise = new Promise<boolean>((_, reject) =>
+                    setTimeout(() => reject(new Error("Effects init timeout")), 5000)
+                  );
+                  await Promise.race([initPromise, timeoutPromise]);
+                }
                 const effectsResult = await this.effectsEngine.applyEffects(
                   bitmap,
                   clip.effects,
@@ -478,6 +518,7 @@ export class VideoEngine {
                   `Failed to apply effects to clip ${clip.id}:`,
                   error,
                 );
+                this.effectsEngine = null;
               }
             }
 
