@@ -105,16 +105,18 @@ export class FFmpegFallback {
 
       this.ffmpeg = new FFmpeg() as unknown as FFmpegInstance;
 
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+      const baseURL = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
 
-      const [coreURL, wasmURL] = await Promise.all([
+      const [coreURL, wasmURL, workerURL] = await Promise.all([
         toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
         toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, "text/javascript"),
       ]);
 
       await this.ffmpeg.load({
         coreURL,
         wasmURL,
+        workerURL,
       });
       this.loaded = true;
     } catch (error) {
@@ -680,7 +682,7 @@ export class FFmpegFallback {
         ffmpegArgs.push("-i", "audio.wav");
       }
 
-      ffmpegArgs.push("-threads", "2");
+      ffmpegArgs.push("-threads", "4");
 
       if (format === "mp4") {
         ffmpegArgs.push(
@@ -908,6 +910,8 @@ export class FFmpegFallback {
       if (endTime !== undefined && endTime > startTime) {
         ffmpegArgs.push("-t", (endTime - startTime).toString());
       }
+
+      ffmpegArgs.push("-threads", "4");
 
       const needsReencode = speed !== 1 || !useStreamCopy;
 
