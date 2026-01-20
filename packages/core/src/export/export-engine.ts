@@ -21,6 +21,7 @@ import { AudioEngine, getAudioEngine } from "../audio/audio-engine";
 import { titleEngine } from "../text/title-engine";
 import { graphicsEngine } from "../graphics/graphics-engine";
 import { UpscalingEngine, getUpscalingEngine } from "../video/upscaling";
+import { getMediaEngine } from "../media/mediabunny-engine";
 
 export class ExportEngine {
   private mediabunny: typeof import("mediabunny") | null = null;
@@ -369,7 +370,9 @@ export class ExportEngine {
         fullSettings.codec === "vp9" ||
         fullSettings.codec === "av1" ||
         fullSettings.codec === "h265";
-      const flushInterval = isIntensiveCodec ? 10 : 30;
+      const microFlushInterval = isIntensiveCodec ? 5 : 10;
+      const majorFlushInterval = 30;
+      const cacheCleanInterval = 90;
 
       for (let frame = 0; frame < totalFrames; frame++) {
         if (this.abortController.signal.aborted) {
@@ -412,8 +415,23 @@ export class ExportEngine {
 
         this.currentExport!.framesRendered = frame + 1;
 
-        if ((frame + 1) % flushInterval === 0) {
+        if ((frame + 1) % microFlushInterval === 0) {
           await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        if ((frame + 1) % majorFlushInterval === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        if ((frame + 1) % cacheCleanInterval === 0) {
+          this.videoEngine?.clearVideoElementCache();
+          try {
+            const mediaEngine = getMediaEngine();
+            mediaEngine.clearFrameCache();
+          } catch {
+            // MediaEngine may not be initialized
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         yield this.createProgress(

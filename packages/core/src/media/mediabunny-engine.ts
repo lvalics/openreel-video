@@ -88,6 +88,14 @@ export class MediaBunnyEngine {
     return this.initialized && this.mediabunny !== null;
   }
 
+  clearFrameCache(): void {
+    this.frameCache.clear();
+  }
+
+  getFrameCacheSize(): number {
+    return this.frameCache.size;
+  }
+
   private ensureInitialized(): void {
     if (!this.mediabunny) {
       throw new Error("MediaBunny not initialized. Call initialize() first.");
