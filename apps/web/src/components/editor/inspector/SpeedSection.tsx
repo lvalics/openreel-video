@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Zap, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import type { Clip } from "@openreel/core";
 import { getSpeedEngine } from "@openreel/core";
 import { useProjectStore } from "../../../stores/project-store";
@@ -157,11 +157,6 @@ export const SpeedSection: React.FC<SpeedSectionProps> = ({ clip }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-text-secondary">
-        <Zap size={14} />
-        <span className="text-xs font-medium">Speed & Direction</span>
-      </div>
-
       <div className="grid grid-cols-3 gap-2">
         {SPEED_PRESETS.map((preset) => (
           <button

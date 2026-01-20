@@ -28,22 +28,6 @@ export const CropSection: React.FC<CropSectionProps> = ({ clip }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Crop size={14} className="text-text-secondary" />
-          <span className="text-xs font-medium text-text-primary">Crop</span>
-        </div>
-        {isCropped && (
-          <button
-            onClick={handleReset}
-            className="p-1 hover:bg-background-secondary rounded transition-colors"
-            title="Reset crop"
-          >
-            <RotateCcw size={12} className="text-text-muted" />
-          </button>
-        )}
-      </div>
-
       <button
         onClick={handleEnableCropMode}
         className="w-full py-2.5 bg-primary hover:bg-primary/90 text-black rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"
@@ -53,20 +37,29 @@ export const CropSection: React.FC<CropSectionProps> = ({ clip }) => {
       </button>
 
       {isCropped && (
-        <div className="text-[9px] text-text-muted space-y-0.5 p-2 bg-background-tertiary rounded border border-border">
-          <div className="flex justify-between">
-            <span>Crop Region:</span>
-            <span>
-              {Math.round(crop.width * 100)}% × {Math.round(crop.height * 100)}%
-            </span>
+        <>
+          <div className="text-[9px] text-text-muted space-y-0.5 p-2 bg-background-tertiary rounded border border-border">
+            <div className="flex justify-between">
+              <span>Crop Region:</span>
+              <span>
+                {Math.round(crop.width * 100)}% × {Math.round(crop.height * 100)}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Position:</span>
+              <span>
+                ({Math.round(crop.x * 100)}%, {Math.round(crop.y * 100)}%)
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span>Position:</span>
-            <span>
-              ({Math.round(crop.x * 100)}%, {Math.round(crop.y * 100)}%)
-            </span>
-          </div>
-        </div>
+          <button
+            onClick={handleReset}
+            className="w-full py-2 text-xs text-text-secondary hover:text-text-primary bg-background-tertiary hover:bg-background-elevated border border-border rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <RotateCcw size={12} />
+            Reset Crop
+          </button>
+        </>
       )}
     </div>
   );

@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo } from "react";
-import { Box } from "lucide-react";
 import { useProjectStore } from "../../../stores/project-store";
 
 const Slider: React.FC<{
@@ -134,13 +133,7 @@ export const Transform3DSection: React.FC<Transform3DSectionProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-text-secondary">
-        <Box size={12} />
-        <span className="text-[10px] font-medium">3D Transforms</span>
-      </div>
-
-      <div className="space-y-3">
+    <div className="space-y-3">
         <Slider
           label="Rotation X"
           value={rotate3d.x}
@@ -204,7 +197,6 @@ export const Transform3DSection: React.FC<Transform3DSectionProps> = ({
               "Children positioned in 3D space"}
           </p>
         </div>
-      </div>
 
       {(rotate3d.x !== 0 || rotate3d.y !== 0 || rotate3d.z !== 0) && (
         <div className="p-2 bg-primary/5 border border-primary/20 rounded-lg">

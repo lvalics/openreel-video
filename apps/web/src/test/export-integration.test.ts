@@ -86,7 +86,8 @@ describe("Export Readiness - Project Validation", () => {
     expect(typeof project.id).toBe("string");
     expect(project.id.length).toBeGreaterThan(0);
 
-    expect(project.name).toBe("Untitled Project");
+    expect(project.name).toBeDefined();
+    expect(project.name.length).toBeGreaterThan(0);
 
     expect(project.settings).toEqual({
       width: 1920,

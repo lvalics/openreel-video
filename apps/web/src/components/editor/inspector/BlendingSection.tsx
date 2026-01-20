@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo } from "react";
-import { Layers } from "lucide-react";
 import { useProjectStore } from "../../../stores/project-store";
 import {
   getAvailableBlendModes,
@@ -116,14 +115,8 @@ export const BlendingSection: React.FC<BlendingSectionProps> = ({ clipId }) => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-text-secondary">
-        <Layers size={12} />
-        <span className="text-[10px] font-medium">Layer Blending</span>
-      </div>
-
-      <div className="space-y-3">
-        <div className="space-y-1">
+    <div className="space-y-3">
+      <div className="space-y-1">
           <span className="text-[10px] text-text-secondary">Blend Mode</span>
           <select
             value={blendMode}
@@ -161,7 +154,6 @@ export const BlendingSection: React.FC<BlendingSectionProps> = ({ clipId }) => {
           step={1}
           unit="%"
         />
-      </div>
 
       {blendMode !== "normal" && (
         <div className="p-2 bg-primary/5 border border-primary/20 rounded-lg">

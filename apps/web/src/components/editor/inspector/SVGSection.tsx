@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo } from "react";
-import { Image, Palette } from "lucide-react";
 import { useProjectStore } from "../../../stores/project-store";
 import type { GraphicAnimation, GraphicAnimationType } from "@openreel/core";
 import { SVG_ANIMATION_PRESETS } from "@openreel/core";
@@ -194,24 +193,8 @@ export const SVGSection: React.FC<SVGSectionProps> = ({ clipId }) => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 p-2 bg-background-tertiary rounded-lg">
-        <div className="p-1.5 bg-background-secondary rounded">
-          <Image size={16} />
-        </div>
-        <div>
-          <span className="text-[10px] font-medium text-text-primary">SVG</span>
-          <p className="text-[9px] text-text-muted">Vector graphic</p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-text-secondary">
-          <Palette size={12} />
-          <span className="text-[10px] font-medium">Color Style</span>
-        </div>
-
-        <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-text-secondary">Mode</span>
             <div className="flex gap-1">
@@ -249,9 +232,8 @@ export const SVGSection: React.FC<SVGSectionProps> = ({ clipId }) => {
             </>
           )}
         </div>
-      </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <span className="text-[10px] font-medium text-text-secondary">
           Entry Animation
         </span>

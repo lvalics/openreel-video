@@ -54,7 +54,7 @@ const Section: React.FC<{
   defaultOpen?: boolean;
   sectionId?: string;
   children: React.ReactNode;
-}> = ({ title, defaultOpen = true, sectionId, children }) => {
+}> = ({ title, defaultOpen = false, sectionId, children }) => {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
 
   return (
@@ -907,7 +907,6 @@ export const InspectorPanel: React.FC = () => {
             {/* Motion Presets - Advanced animation presets */}
             {(clipType === "video" ||
               clipType === "image" ||
-              clipType === "text" ||
               clipType === "shape" ||
               clipType === "svg" ||
               clipType === "sticker") && (
@@ -1099,39 +1098,41 @@ export const InspectorPanel: React.FC = () => {
               </Section>
             )}
 
-            {/* Quick Actions */}
-            <div className="border border-primary/30 bg-primary/5 rounded-xl p-4 relative overflow-hidden">
-              <div className="flex items-center gap-2 text-primary mb-3">
-                <Zap size={14} />
-                <span className="text-xs font-bold">Quick Actions</span>
+            {/* Quick Actions - Only show when there are actions available */}
+            {(showVideoControls || showAudioEffects || showVideoEffects) && (
+              <div className="border border-primary/30 bg-primary/5 rounded-xl p-4 relative overflow-hidden">
+                <div className="flex items-center gap-2 text-primary mb-3">
+                  <Zap size={14} />
+                  <span className="text-xs font-bold">Quick Actions</span>
+                </div>
+                <div className="space-y-2">
+                  {showVideoControls && (
+                    <button
+                      onClick={handleRemoveBackground}
+                      className="w-full py-2 bg-background-tertiary hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg text-[10px] transition-all"
+                    >
+                      Remove Background
+                    </button>
+                  )}
+                  {showAudioEffects && (
+                    <button
+                      onClick={handleEnhanceAudio}
+                      className="w-full py-2 bg-background-tertiary hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg text-[10px] transition-all"
+                    >
+                      Enhance Audio
+                    </button>
+                  )}
+                  {showVideoEffects && (
+                    <button
+                      onClick={handleAutoColor}
+                      className="w-full py-2 bg-background-tertiary hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg text-[10px] transition-all"
+                    >
+                      Auto-Color
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                {showVideoControls && (
-                  <button
-                    onClick={handleRemoveBackground}
-                    className="w-full py-2 bg-background-tertiary hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg text-[10px] transition-all"
-                  >
-                    Remove Background
-                  </button>
-                )}
-                {showAudioEffects && (
-                  <button
-                    onClick={handleEnhanceAudio}
-                    className="w-full py-2 bg-background-tertiary hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg text-[10px] transition-all"
-                  >
-                    Enhance Audio
-                  </button>
-                )}
-                {showVideoEffects && (
-                  <button
-                    onClick={handleAutoColor}
-                    className="w-full py-2 bg-background-tertiary hover:bg-primary hover:text-black border border-border hover:border-primary rounded-lg text-[10px] transition-all"
-                  >
-                    Auto-Color
-                  </button>
-                )}
-              </div>
-            </div>
+            )}
           </>
         ) : selectedSubtitle ? (
           <>

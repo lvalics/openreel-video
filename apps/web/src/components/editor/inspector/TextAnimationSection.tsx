@@ -211,13 +211,6 @@ export const TextAnimationSection: React.FC<TextAnimationSectionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles size={14} className="text-primary" />
-        <span className="text-xs font-medium text-text-primary">
-          Text Animation
-        </span>
-      </div>
-
       <PresetSelector value={currentPreset} onChange={handlePresetChange} />
 
       {currentPreset !== "none" && (

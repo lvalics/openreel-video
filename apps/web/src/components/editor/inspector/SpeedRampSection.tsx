@@ -6,7 +6,6 @@ import React, {
   useEffect,
 } from "react";
 import {
-  Gauge,
   Play,
   Rewind,
   FastForward,
@@ -350,16 +349,10 @@ export const SpeedRampSection: React.FC<SpeedRampSectionProps> = ({ clip }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 p-2 bg-gradient-to-r from-orange-500/20 to-yellow-500/20 rounded-lg border border-orange-500/30">
-        <Gauge size={16} className="text-orange-400" />
-        <div className="flex-1">
-          <span className="text-[11px] font-medium text-text-primary">
-            Speed & Time
-          </span>
-          <p className="text-[9px] text-text-muted">
-            {formatDuration(effectiveDuration)} effective duration
-          </p>
-        </div>
+      <div className="p-2 bg-background-tertiary rounded-lg border border-border">
+        <p className="text-[10px] text-text-muted">
+          Effective duration: {formatDuration(effectiveDuration)}
+        </p>
       </div>
 
       <div className="space-y-2">
