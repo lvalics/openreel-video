@@ -30,6 +30,13 @@ export interface Stroke {
   style: 'solid' | 'dashed' | 'dotted';
 }
 
+export interface Glow {
+  enabled: boolean;
+  color: string;
+  blur: number;
+  intensity: number;
+}
+
 export interface Filter {
   brightness: number;
   contrast: number;
@@ -49,6 +56,7 @@ export interface BaseLayer {
   blendMode: BlendMode;
   shadow: Shadow;
   stroke: Stroke;
+  glow: Glow;
   filters: Filter;
   parentId: string | null;
 }
@@ -84,8 +92,23 @@ export interface TextLayer extends BaseLayer {
 
 export type ShapeType = 'rectangle' | 'ellipse' | 'triangle' | 'polygon' | 'star' | 'line' | 'arrow' | 'path';
 
+export interface GradientStop {
+  offset: number;
+  color: string;
+}
+
+export interface Gradient {
+  type: 'linear' | 'radial';
+  angle: number;
+  stops: GradientStop[];
+}
+
+export type FillType = 'solid' | 'gradient';
+
 export interface ShapeStyle {
+  fillType: FillType;
   fill: string | null;
+  gradient: Gradient | null;
   fillOpacity: number;
   stroke: string | null;
   strokeWidth: number;
@@ -198,6 +221,13 @@ export const DEFAULT_STROKE: Stroke = {
   style: 'solid',
 };
 
+export const DEFAULT_GLOW: Glow = {
+  enabled: false,
+  color: '#ffffff',
+  blur: 20,
+  intensity: 1,
+};
+
 export const DEFAULT_FILTER: Filter = {
   brightness: 100,
   contrast: 100,
@@ -222,7 +252,9 @@ export const DEFAULT_TEXT_STYLE: TextStyle = {
 };
 
 export const DEFAULT_SHAPE_STYLE: ShapeStyle = {
+  fillType: 'solid',
   fill: '#3b82f6',
+  gradient: null,
   fillOpacity: 1,
   stroke: null,
   strokeWidth: 2,

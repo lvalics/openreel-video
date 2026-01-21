@@ -2,8 +2,17 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
 export type AppView = 'welcome' | 'editor';
-export type Tool = 'select' | 'hand' | 'text' | 'shape' | 'pen' | 'eyedropper' | 'zoom';
-export type Panel = 'layers' | 'assets' | 'templates' | 'text' | 'shapes' | 'uploads';
+export type Tool = 'select' | 'hand' | 'text' | 'shape' | 'pen' | 'eyedropper' | 'zoom' | 'crop';
+export type Panel = 'layers' | 'assets' | 'templates' | 'text' | 'shapes' | 'uploads' | 'elements';
+
+export type CropAspectRatio = 'free' | '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | 'original';
+
+export interface CropState {
+  isActive: boolean;
+  layerId: string | null;
+  aspectRatio: CropAspectRatio;
+  cropRect: { x: number; y: number; width: number; height: number } | null;
+}
 
 interface UIState {
   currentView: AppView;
@@ -24,6 +33,8 @@ interface UIState {
   isExporting: boolean;
   exportProgress: number;
   notification: { type: 'success' | 'error' | 'info'; message: string } | null;
+  crop: CropState;
+  isExportDialogOpen: boolean;
 }
 
 interface UIActions {
@@ -49,6 +60,13 @@ interface UIActions {
   setExportProgress: (progress: number) => void;
   showNotification: (type: 'success' | 'error' | 'info', message: string) => void;
   clearNotification: () => void;
+  startCrop: (layerId: string, initialRect: { x: number; y: number; width: number; height: number }) => void;
+  updateCropRect: (rect: { x: number; y: number; width: number; height: number }) => void;
+  setCropAspectRatio: (ratio: CropAspectRatio) => void;
+  cancelCrop: () => void;
+  applyCrop: () => { layerId: string; cropRect: { x: number; y: number; width: number; height: number } } | null;
+  openExportDialog: () => void;
+  closeExportDialog: () => void;
 }
 
 const ZOOM_LEVELS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 8];
@@ -73,6 +91,13 @@ export const useUIStore = create<UIState & UIActions>()(
     isExporting: false,
     exportProgress: 0,
     notification: null,
+    crop: {
+      isActive: false,
+      layerId: null,
+      aspectRatio: 'free',
+      cropRect: null,
+    },
+    isExportDialogOpen: false,
 
     setCurrentView: (view) => set({ currentView: view }),
     setActiveTool: (tool) => set({ activeTool: tool }),
@@ -119,5 +144,59 @@ export const useUIStore = create<UIState & UIActions>()(
     },
 
     clearNotification: () => set({ notification: null }),
+
+    startCrop: (layerId, initialRect) =>
+      set({
+        crop: {
+          isActive: true,
+          layerId,
+          aspectRatio: 'free',
+          cropRect: initialRect,
+        },
+        activeTool: 'crop',
+      }),
+
+    updateCropRect: (rect) =>
+      set((s) => ({
+        crop: { ...s.crop, cropRect: rect },
+      })),
+
+    setCropAspectRatio: (ratio) =>
+      set((s) => ({
+        crop: { ...s.crop, aspectRatio: ratio },
+      })),
+
+    cancelCrop: () =>
+      set({
+        crop: {
+          isActive: false,
+          layerId: null,
+          aspectRatio: 'free',
+          cropRect: null,
+        },
+        activeTool: 'select',
+      }),
+
+    applyCrop: () => {
+      const { crop } = get();
+      if (!crop.isActive || !crop.layerId || !crop.cropRect) return null;
+
+      const result = { layerId: crop.layerId, cropRect: crop.cropRect };
+
+      set({
+        crop: {
+          isActive: false,
+          layerId: null,
+          aspectRatio: 'free',
+          cropRect: null,
+        },
+        activeTool: 'select',
+      });
+
+      return result;
+    },
+
+    openExportDialog: () => set({ isExportDialogOpen: true }),
+    closeExportDialog: () => set({ isExportDialogOpen: false }),
   }))
 );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { useCanvasStore } from '../../../stores/canvas-store';
+import { calculateSnap } from '../../../utils/snapping';
 import type { Layer, ImageLayer, TextLayer, ShapeLayer } from '../../../types/project';
 
 export function Canvas() {
@@ -9,8 +10,8 @@ export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { project, selectedLayerIds, selectedArtboardId, updateLayerTransform, selectLayer, deselectAllLayers } = useProjectStore();
-  const { zoom, panX, panY, setPan, activeTool, showGrid, gridSize } = useUIStore();
-  const { setCanvasRef, setContainerRef, startDrag, updateDrag, endDrag, isDragging, dragMode, dragCurrentX, dragCurrentY } = useCanvasStore();
+  const { zoom, panX, panY, setPan, activeTool, showGrid, gridSize, crop, snapToObjects, snapToGuides, snapToGrid } = useUIStore();
+  const { setCanvasRef, setContainerRef, startDrag, updateDrag, endDrag, isDragging, dragMode, dragCurrentX, dragCurrentY, guides, smartGuides, setSmartGuides, clearSmartGuides } = useCanvasStore();
 
   const artboard = project?.artboards.find((a) => a.id === selectedArtboardId);
 
@@ -128,8 +129,109 @@ export function Canvas() {
       ctx.restore();
     });
 
+    if (smartGuides.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+
+      smartGuides.forEach((guide) => {
+        ctx.beginPath();
+        if (guide.type === 'vertical') {
+          ctx.moveTo(artboardX + guide.position * zoom, artboardY + guide.start * zoom);
+          ctx.lineTo(artboardX + guide.position * zoom, artboardY + guide.end * zoom);
+        } else {
+          ctx.moveTo(artboardX + guide.start * zoom, artboardY + guide.position * zoom);
+          ctx.lineTo(artboardX + guide.end * zoom, artboardY + guide.position * zoom);
+        }
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    if (crop.isActive && crop.layerId && crop.cropRect) {
+      const cropLayer = project.layers[crop.layerId];
+      if (cropLayer) {
+        const { x: layerX, y: layerY, width: layerW, height: layerH } = cropLayer.transform;
+        const { x: cropX, y: cropY, width: cropW, height: cropH } = crop.cropRect;
+
+        ctx.save();
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(
+          artboardX + layerX * zoom,
+          artboardY + layerY * zoom,
+          layerW * zoom,
+          cropY * zoom
+        );
+        ctx.fillRect(
+          artboardX + layerX * zoom,
+          artboardY + (layerY + cropY + cropH) * zoom,
+          layerW * zoom,
+          (layerH - cropY - cropH) * zoom
+        );
+        ctx.fillRect(
+          artboardX + layerX * zoom,
+          artboardY + (layerY + cropY) * zoom,
+          cropX * zoom,
+          cropH * zoom
+        );
+        ctx.fillRect(
+          artboardX + (layerX + cropX + cropW) * zoom,
+          artboardY + (layerY + cropY) * zoom,
+          (layerW - cropX - cropW) * zoom,
+          cropH * zoom
+        );
+
+        const cX = artboardX + (layerX + cropX) * zoom;
+        const cY = artboardY + (layerY + cropY) * zoom;
+        const cW = cropW * zoom;
+        const cH = cropH * zoom;
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cX, cY, cW, cH);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(cX + (cW * i) / 3, cY);
+          ctx.lineTo(cX + (cW * i) / 3, cY + cH);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cX, cY + (cH * i) / 3);
+          ctx.lineTo(cX + cW, cY + (cH * i) / 3);
+          ctx.stroke();
+        }
+
+        const handleSize = 10;
+        const handlePositions = [
+          { x: cX, y: cY },
+          { x: cX + cW / 2, y: cY },
+          { x: cX + cW, y: cY },
+          { x: cX + cW, y: cY + cH / 2 },
+          { x: cX + cW, y: cY + cH },
+          { x: cX + cW / 2, y: cY + cH },
+          { x: cX, y: cY + cH },
+          { x: cX, y: cY + cH / 2 },
+        ];
+
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        handlePositions.forEach((h) => {
+          ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize);
+          ctx.strokeRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize);
+        });
+
+        ctx.restore();
+      }
+    }
+
     ctx.restore();
-  }, [artboard, project, zoom, panX, panY, selectedLayerIds, showGrid, gridSize]);
+  }, [artboard, project, zoom, panX, panY, selectedLayerIds, showGrid, gridSize, crop, smartGuides]);
 
   useEffect(() => {
     render();
@@ -225,27 +327,53 @@ export function Canvas() {
         const dx = e.clientX - dragCurrentX;
         const dy = e.clientY - dragCurrentY;
         setPan(panX + dx, panY + dy);
-      } else if (dragMode === 'move' && selectedLayerIds.length > 0) {
+      } else if (dragMode === 'move' && selectedLayerIds.length > 0 && artboard) {
         const dx = (e.clientX - dragCurrentX) / zoom;
         const dy = (e.clientY - dragCurrentY) / zoom;
 
-        selectedLayerIds.forEach((layerId) => {
-          const layer = project?.layers[layerId];
-          if (layer) {
-            updateLayerTransform(layerId, {
-              x: layer.transform.x + dx,
-              y: layer.transform.y + dy,
-            });
-          }
-        });
+        const firstLayerId = selectedLayerIds[0];
+        const firstLayer = project?.layers[firstLayerId];
+
+        if (firstLayer) {
+          const newX = firstLayer.transform.x + dx;
+          const newY = firstLayer.transform.y + dy;
+
+          const otherLayers = Object.values(project?.layers ?? {}).filter(
+            (l) => l && !selectedLayerIds.includes(l.id)
+          );
+
+          const snapResult = calculateSnap(
+            { x: newX, y: newY, width: firstLayer.transform.width, height: firstLayer.transform.height },
+            otherLayers as Layer[],
+            { x: 0, y: 0, width: artboard.size.width, height: artboard.size.height },
+            guides,
+            { snapToObjects, snapToGuides, snapToGrid, gridSize, threshold: 8 }
+          );
+
+          const adjustedDx = snapResult.x - firstLayer.transform.x;
+          const adjustedDy = snapResult.y - firstLayer.transform.y;
+
+          selectedLayerIds.forEach((layerId) => {
+            const layer = project?.layers[layerId];
+            if (layer) {
+              updateLayerTransform(layerId, {
+                x: layer.transform.x + adjustedDx,
+                y: layer.transform.y + adjustedDy,
+              });
+            }
+          });
+
+          setSmartGuides(snapResult.guides);
+        }
       }
     },
-    [isDragging, dragMode, dragCurrentX, dragCurrentY, panX, panY, setPan, zoom, selectedLayerIds, project, updateLayerTransform, updateDrag]
+    [isDragging, dragMode, dragCurrentX, dragCurrentY, panX, panY, setPan, zoom, selectedLayerIds, project, updateLayerTransform, updateDrag, artboard, guides, snapToObjects, snapToGuides, snapToGrid, gridSize, setSmartGuides]
   );
 
   const handleMouseUp = useCallback(() => {
     endDrag();
-  }, [endDrag]);
+    clearSmartGuides();
+  }, [endDrag, clearSmartGuides]);
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -329,7 +457,32 @@ function renderImageLayer(
   const img = new window.Image();
   img.src = asset.dataUrl ?? asset.blobUrl ?? '';
   if (img.complete) {
+    const { filters } = layer;
+    const filterParts: string[] = [];
+
+    if (filters.brightness !== 100) {
+      filterParts.push(`brightness(${filters.brightness}%)`);
+    }
+    if (filters.contrast !== 100) {
+      filterParts.push(`contrast(${filters.contrast}%)`);
+    }
+    if (filters.saturation !== 100) {
+      filterParts.push(`saturate(${filters.saturation}%)`);
+    }
+    if (filters.hue !== 0) {
+      filterParts.push(`hue-rotate(${filters.hue}deg)`);
+    }
+    if (filters.blur > 0) {
+      filterParts.push(`blur(${filters.blur}px)`);
+    }
+
+    if (filterParts.length > 0) {
+      ctx.filter = filterParts.join(' ');
+    }
+
     ctx.drawImage(img, 0, 0, layer.transform.width, layer.transform.height);
+
+    ctx.filter = 'none';
   }
 }
 

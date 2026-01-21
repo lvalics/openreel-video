@@ -14,6 +14,19 @@ export interface SelectionRect {
   height: number;
 }
 
+export interface SmartGuide {
+  type: 'horizontal' | 'vertical';
+  position: number;
+  start: number;
+  end: number;
+}
+
+export interface SnapResult {
+  x: number;
+  y: number;
+  guides: SmartGuide[];
+}
+
 export type DragMode = 'none' | 'move' | 'resize' | 'rotate' | 'marquee' | 'pan';
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
@@ -43,6 +56,8 @@ interface CanvasState {
   transformOriginY: number;
 
   renderCount: number;
+
+  smartGuides: SmartGuide[];
 }
 
 interface CanvasActions {
@@ -70,6 +85,9 @@ interface CanvasActions {
   setTransformOrigin: (x: number, y: number) => void;
 
   requestRender: () => void;
+
+  setSmartGuides: (guides: SmartGuide[]) => void;
+  clearSmartGuides: () => void;
 }
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -101,6 +119,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     transformOriginY: 0.5,
 
     renderCount: 0,
+
+    smartGuides: [],
 
     setCanvasRef: (canvas) => {
       set({
@@ -211,6 +231,14 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
     requestRender: () => {
       set((state) => ({ renderCount: state.renderCount + 1 }));
+    },
+
+    setSmartGuides: (guides) => {
+      set({ smartGuides: guides });
+    },
+
+    clearSmartGuides: () => {
+      set({ smartGuides: [] });
     },
   }))
 );

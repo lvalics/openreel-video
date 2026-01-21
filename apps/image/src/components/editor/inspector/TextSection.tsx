@@ -1,27 +1,11 @@
 import { useProjectStore } from '../../../stores/project-store';
 import type { TextLayer, TextStyle } from '../../../types/project';
 import { AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline } from 'lucide-react';
+import { FontPicker } from '../../ui/FontPicker';
 
 interface Props {
   layer: TextLayer;
 }
-
-const FONT_FAMILIES = [
-  'Inter',
-  'DM Sans',
-  'Poppins',
-  'Montserrat',
-  'Playfair Display',
-  'Roboto',
-  'Open Sans',
-  'Lato',
-  'Oswald',
-  'Bebas Neue',
-  'Pacifico',
-  'Lobster',
-  'Dancing Script',
-  'Great Vibes',
-];
 
 const FONT_SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96, 128];
 
@@ -72,21 +56,15 @@ export function TextSection({ layer }: Props) {
         />
       </div>
 
+      <div>
+        <label className="block text-[10px] text-muted-foreground mb-1">Font</label>
+        <FontPicker
+          value={layer.style.fontFamily}
+          onChange={(fontFamily) => handleStyleChange({ fontFamily })}
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">Font</label>
-          <select
-            value={layer.style.fontFamily}
-            onChange={(e) => handleStyleChange({ fontFamily: e.target.value })}
-            className="w-full px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            {FONT_FAMILIES.map((font) => (
-              <option key={font} value={font} style={{ fontFamily: font }}>
-                {font}
-              </option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className="block text-[10px] text-muted-foreground mb-1">Size</label>
           <select
@@ -99,6 +77,20 @@ export function TextSection({ layer }: Props) {
                 {size}px
               </option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] text-muted-foreground mb-1">Weight</label>
+          <select
+            value={layer.style.fontWeight}
+            onChange={(e) => handleStyleChange({ fontWeight: Number(e.target.value) })}
+            className="w-full px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value={300}>Light</option>
+            <option value={400}>Regular</option>
+            <option value={500}>Medium</option>
+            <option value={600}>Semibold</option>
+            <option value={700}>Bold</option>
           </select>
         </div>
       </div>

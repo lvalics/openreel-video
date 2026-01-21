@@ -38,6 +38,7 @@ export function Toolbar() {
     togglePanelCollapsed,
     toggleInspectorCollapsed,
     setCurrentView,
+    openExportDialog,
   } = useUIStore();
 
   const { project, setProjectName } = useProjectStore();
@@ -157,7 +158,7 @@ export function Toolbar() {
       <div className="w-px h-6 bg-border mx-1" />
 
       <button
-        onClick={() => {}}
+        onClick={openExportDialog}
         className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all"
       >
         <Download size={16} />

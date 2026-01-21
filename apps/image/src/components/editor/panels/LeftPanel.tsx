@@ -9,12 +9,56 @@ import {
   Search,
   Plus,
   Folder,
+  Sparkles,
+  Star,
+  Heart,
+  Zap,
+  Cloud,
+  Sun,
+  Moon,
+  Circle,
+  Square,
+  Triangle,
+  Hexagon,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  Check,
+  X,
+  AlertCircle,
+  Info,
+  HelpCircle,
+  MapPin,
+  Home,
+  Settings,
+  User,
+  Users,
+  Mail,
+  Phone,
+  Camera,
+  Music,
+  Video,
+  Mic,
+  Bookmark,
+  Flag,
+  Award,
+  Gift,
+  Coffee,
 } from 'lucide-react';
 import { useUIStore, Panel } from '../../../stores/ui-store';
 import { useProjectStore } from '../../../stores/project-store';
+import {
+  TEMPLATE_CATEGORIES,
+  getTemplatesByCategory,
+  getAllTemplates,
+  searchTemplates,
+  Template,
+} from '../../../services/templates-service';
 
 const panels: { id: Panel; icon: React.ElementType; label: string }[] = [
   { id: 'layers', icon: Layers, label: 'Layers' },
+  { id: 'elements', icon: Sparkles, label: 'Elements' },
   { id: 'assets', icon: Image, label: 'Assets' },
   { id: 'templates', icon: LayoutTemplate, label: 'Templates' },
   { id: 'text', icon: Type, label: 'Text' },
@@ -50,6 +94,7 @@ export function LeftPanel() {
 
       <div className="flex-1 overflow-hidden">
         {activePanel === 'layers' && <LayersPanel />}
+        {activePanel === 'elements' && <ElementsPanel />}
         {activePanel === 'assets' && <AssetsPanel />}
         {activePanel === 'templates' && <TemplatesPanel />}
         {activePanel === 'text' && <TextPanel />}
@@ -120,23 +165,127 @@ function AssetsPanel() {
 }
 
 function TemplatesPanel() {
+  const { createProject } = useProjectStore();
+  const { setCurrentView } = useUIStore();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const categories = TEMPLATE_CATEGORIES;
+  const filteredTemplates = searchQuery
+    ? searchTemplates(searchQuery)
+    : selectedCategory
+    ? getTemplatesByCategory(selectedCategory)
+    : getAllTemplates();
+
+  const handleApplyTemplate = (template: Template) => {
+    createProject(template.name, template.size, template.background);
+    setCurrentView('editor');
+  };
+
+  const getGradientBackground = (template: Template): string => {
+    if (template.background.type === 'gradient' && template.background.gradient) {
+      const { type, angle, stops } = template.background.gradient;
+      const stopsStr = stops.map((s) => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ');
+      return type === 'linear'
+        ? `linear-gradient(${angle}deg, ${stopsStr})`
+        : `radial-gradient(circle, ${stopsStr})`;
+    }
+    if (template.background.type === 'color') {
+      return template.background.color ?? '#ffffff';
+    }
+    return 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+  };
+
   return (
-    <div className="p-3">
+    <div className="p-3 h-full overflow-y-auto">
       <div className="mb-3">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search templates..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (e.target.value) setSelectedCategory(null);
+            }}
             className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
         </div>
       </div>
 
-      <div className="text-center py-8">
-        <LayoutTemplate size={32} className="mx-auto text-muted-foreground mb-2" />
-        <p className="text-xs text-muted-foreground">Templates coming soon</p>
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <button
+          onClick={() => setSelectedCategory(null)}
+          className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors ${
+            !selectedCategory
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-secondary-foreground hover:bg-accent'
+          }`}
+        >
+          All
+        </button>
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => {
+              setSelectedCategory(category.id);
+              setSearchQuery('');
+            }}
+            className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-colors ${
+              selectedCategory === category.id
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground hover:bg-accent'
+            }`}
+          >
+            {category.name}
+          </button>
+        ))}
       </div>
+
+      {filteredTemplates.length === 0 ? (
+        <div className="text-center py-8">
+          <LayoutTemplate size={32} className="mx-auto text-muted-foreground mb-2" />
+          <p className="text-xs text-muted-foreground">No templates found</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {filteredTemplates.map((template) => {
+            const aspectRatio = template.size.width / template.size.height;
+            const thumbWidth = 100;
+            const thumbHeight = thumbWidth / aspectRatio;
+
+            return (
+              <button
+                key={template.id}
+                onClick={() => handleApplyTemplate(template)}
+                className="group text-left rounded-lg border border-border bg-background hover:border-primary hover:bg-primary/5 transition-all overflow-hidden"
+              >
+                <div className="p-2 flex items-center justify-center bg-muted/30">
+                  <div
+                    className="rounded shadow-sm"
+                    style={{
+                      width: Math.min(thumbWidth, 90),
+                      height: Math.min(thumbHeight, 70),
+                      maxHeight: 70,
+                      background: getGradientBackground(template),
+                      backgroundSize: template.background.type === 'transparent' ? '8px 8px' : undefined,
+                    }}
+                  />
+                </div>
+                <div className="p-2 border-t border-border/50">
+                  <p className="text-[11px] font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                    {template.name}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground">
+                    {template.size.width} × {template.size.height}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -200,6 +349,141 @@ function ShapesPanel() {
             <span className="text-[10px] text-muted-foreground">{shape.label}</span>
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+const ELEMENT_CATEGORIES = [
+  {
+    name: 'Basic Shapes',
+    items: [
+      { icon: Circle, label: 'Circle', shapeType: 'ellipse' as const },
+      { icon: Square, label: 'Square', shapeType: 'rectangle' as const },
+      { icon: Triangle, label: 'Triangle', shapeType: 'triangle' as const },
+      { icon: Hexagon, label: 'Hexagon', shapeType: 'polygon' as const },
+      { icon: Star, label: 'Star', shapeType: 'star' as const },
+    ],
+  },
+  {
+    name: 'Arrows',
+    items: [
+      { icon: ArrowRight, label: 'Right' },
+      { icon: ArrowLeft, label: 'Left' },
+      { icon: ArrowUp, label: 'Up' },
+      { icon: ArrowDown, label: 'Down' },
+    ],
+  },
+  {
+    name: 'Status',
+    items: [
+      { icon: Check, label: 'Check' },
+      { icon: X, label: 'Cross' },
+      { icon: AlertCircle, label: 'Alert' },
+      { icon: Info, label: 'Info' },
+      { icon: HelpCircle, label: 'Help' },
+    ],
+  },
+  {
+    name: 'Icons',
+    items: [
+      { icon: Heart, label: 'Heart' },
+      { icon: Sparkles, label: 'Sparkle' },
+      { icon: Zap, label: 'Zap' },
+      { icon: Sun, label: 'Sun' },
+      { icon: Moon, label: 'Moon' },
+      { icon: Cloud, label: 'Cloud' },
+      { icon: MapPin, label: 'Pin' },
+      { icon: Home, label: 'Home' },
+      { icon: Settings, label: 'Settings' },
+      { icon: User, label: 'User' },
+      { icon: Users, label: 'Users' },
+      { icon: Mail, label: 'Mail' },
+      { icon: Phone, label: 'Phone' },
+      { icon: Camera, label: 'Camera' },
+      { icon: Music, label: 'Music' },
+      { icon: Video, label: 'Video' },
+      { icon: Mic, label: 'Mic' },
+      { icon: Bookmark, label: 'Bookmark' },
+      { icon: Flag, label: 'Flag' },
+      { icon: Award, label: 'Award' },
+      { icon: Gift, label: 'Gift' },
+      { icon: Coffee, label: 'Coffee' },
+    ],
+  },
+];
+
+function ElementsPanel() {
+  const { addShapeLayer } = useProjectStore();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredCategories = ELEMENT_CATEGORIES.map((category) => ({
+    ...category,
+    items: category.items.filter((item) =>
+      item.label.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  })).filter((category) => category.items.length > 0);
+
+  const handleAddElement = (item: typeof ELEMENT_CATEGORIES[0]['items'][0]) => {
+    if ('shapeType' in item && item.shapeType) {
+      addShapeLayer(item.shapeType);
+    }
+  };
+
+  return (
+    <div className="p-3 h-full overflow-y-auto">
+      <div className="mb-4">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search elements..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        {filteredCategories.map((category) => (
+          <div key={category.name}>
+            <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              {category.name}
+            </h4>
+            <div className="grid grid-cols-4 gap-1.5">
+              {category.items.map((item) => {
+                const Icon = item.icon;
+                const isShape = 'shapeType' in item && item.shapeType;
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => handleAddElement(item)}
+                    className={`aspect-square flex flex-col items-center justify-center rounded-lg border transition-all ${
+                      isShape
+                        ? 'bg-background border-border hover:border-primary hover:bg-primary/5 cursor-pointer'
+                        : 'bg-muted/30 border-transparent cursor-not-allowed opacity-50'
+                    }`}
+                    disabled={!isShape}
+                    title={isShape ? `Add ${item.label}` : `${item.label} (coming soon)`}
+                  >
+                    <Icon size={20} className="text-muted-foreground mb-0.5" />
+                    <span className="text-[9px] text-muted-foreground truncate max-w-full px-1">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {filteredCategories.length === 0 && (
+          <div className="text-center py-8">
+            <Search size={32} className="mx-auto text-muted-foreground mb-2" />
+            <p className="text-xs text-muted-foreground">No elements found</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,10 @@
+import { useState } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import type { ShapeLayer, ShapeStyle } from '../../../types/project';
+import type { ShapeLayer, ShapeStyle, Gradient, FillType } from '../../../types/project';
+import { Slider } from '@openreel/ui';
+import { GradientPicker } from '../../ui/GradientPicker';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@openreel/ui';
+import { ChevronDown } from 'lucide-react';
 
 interface Props {
   layer: ShapeLayer;
@@ -7,6 +12,8 @@ interface Props {
 
 export function ShapeSection({ layer }: Props) {
   const { updateLayer } = useProjectStore();
+  const [isFillOpen, setIsFillOpen] = useState(true);
+  const [isStrokeOpen, setIsStrokeOpen] = useState(false);
 
   const handleStyleChange = (updates: Partial<ShapeStyle>) => {
     updateLayer<ShapeLayer>(layer.id, {
@@ -14,153 +21,230 @@ export function ShapeSection({ layer }: Props) {
     });
   };
 
+  const handleFillTypeChange = (fillType: FillType) => {
+    if (fillType === 'gradient' && !layer.shapeStyle.gradient) {
+      handleStyleChange({
+        fillType,
+        gradient: {
+          type: 'linear',
+          angle: 90,
+          stops: [
+            { offset: 0, color: layer.shapeStyle.fill ?? '#3b82f6' },
+            { offset: 1, color: '#8b5cf6' },
+          ],
+        },
+      });
+    } else {
+      handleStyleChange({ fillType });
+    }
+  };
+
+  const handleGradientChange = (gradient: Gradient) => {
+    handleStyleChange({ gradient });
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
         Shape
       </h4>
 
-      <div>
-        <label className="block text-[10px] text-muted-foreground mb-1">Fill Color</label>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleStyleChange({ fill: layer.shapeStyle.fill ? null : '#3b82f6' })}
-            className={`w-8 h-8 rounded border border-input flex items-center justify-center ${
-              layer.shapeStyle.fill ? '' : 'bg-background'
-            }`}
-            style={{ backgroundColor: layer.shapeStyle.fill ?? undefined }}
-            title={layer.shapeStyle.fill ? 'Remove fill' : 'Add fill'}
-          >
-            {!layer.shapeStyle.fill && (
-              <span className="text-xs text-muted-foreground">∅</span>
-            )}
-          </button>
-          {layer.shapeStyle.fill && (
-            <>
-              <input
-                type="color"
-                value={layer.shapeStyle.fill}
-                onChange={(e) => handleStyleChange({ fill: e.target.value })}
-                className="w-8 h-8 rounded border border-input cursor-pointer"
-              />
-              <input
-                type="text"
-                value={layer.shapeStyle.fill}
-                onChange={(e) => handleStyleChange({ fill: e.target.value })}
-                className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      {layer.shapeStyle.fill && (
-        <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">Fill Opacity</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              value={layer.shapeStyle.fillOpacity * 100}
-              onChange={(e) => handleStyleChange({ fillOpacity: Number(e.target.value) / 100 })}
-              min={0}
-              max={100}
-              className="flex-1 h-1 accent-primary"
-            />
-            <span className="text-[10px] text-muted-foreground w-8 text-right">
-              {Math.round(layer.shapeStyle.fillOpacity * 100)}%
-            </span>
-          </div>
-        </div>
-      )}
-
-      <div>
-        <label className="block text-[10px] text-muted-foreground mb-1">Stroke Color</label>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleStyleChange({ stroke: layer.shapeStyle.stroke ? null : '#000000' })}
-            className={`w-8 h-8 rounded border-2 flex items-center justify-center ${
-              layer.shapeStyle.stroke ? '' : 'border-input bg-background'
-            }`}
-            style={{ borderColor: layer.shapeStyle.stroke ?? undefined }}
-            title={layer.shapeStyle.stroke ? 'Remove stroke' : 'Add stroke'}
-          >
-            {!layer.shapeStyle.stroke && (
-              <span className="text-xs text-muted-foreground">∅</span>
-            )}
-          </button>
-          {layer.shapeStyle.stroke && (
-            <>
-              <input
-                type="color"
-                value={layer.shapeStyle.stroke}
-                onChange={(e) => handleStyleChange({ stroke: e.target.value })}
-                className="w-8 h-8 rounded border border-input cursor-pointer"
-              />
-              <input
-                type="text"
-                value={layer.shapeStyle.stroke}
-                onChange={(e) => handleStyleChange({ stroke: e.target.value })}
-                className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      {layer.shapeStyle.stroke && (
-        <>
-          <div>
-            <label className="block text-[10px] text-muted-foreground mb-1">Stroke Width</label>
+      <Collapsible open={isFillOpen} onOpenChange={setIsFillOpen}>
+        <CollapsibleTrigger asChild>
+          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+            <span className="text-xs font-medium">Fill</span>
             <div className="flex items-center gap-2">
-              <input
-                type="range"
-                value={layer.shapeStyle.strokeWidth}
-                onChange={(e) => handleStyleChange({ strokeWidth: Number(e.target.value) })}
-                min={1}
-                max={20}
-                className="flex-1 h-1 accent-primary"
+              <div
+                className="w-5 h-5 rounded border border-input"
+                style={{
+                  backgroundColor: layer.shapeStyle.fillType === 'solid' ? (layer.shapeStyle.fill ?? 'transparent') : undefined,
+                  background: layer.shapeStyle.fillType === 'gradient' && layer.shapeStyle.gradient
+                    ? layer.shapeStyle.gradient.type === 'linear'
+                      ? `linear-gradient(${layer.shapeStyle.gradient.angle}deg, ${layer.shapeStyle.gradient.stops.map((s) => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')})`
+                      : `radial-gradient(circle, ${layer.shapeStyle.gradient.stops.map((s) => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')})`
+                    : undefined,
+                }}
               />
-              <span className="text-[10px] text-muted-foreground w-6 text-right">
-                {layer.shapeStyle.strokeWidth}
-              </span>
+              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isFillOpen ? 'rotate-180' : ''}`} />
             </div>
-          </div>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => handleFillTypeChange('solid')}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  layer.shapeStyle.fillType === 'solid'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                }`}
+              >
+                Solid
+              </button>
+              <button
+                onClick={() => handleFillTypeChange('gradient')}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  layer.shapeStyle.fillType === 'gradient'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                }`}
+              >
+                Gradient
+              </button>
+            </div>
 
-          <div>
-            <label className="block text-[10px] text-muted-foreground mb-1">Stroke Opacity</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                value={layer.shapeStyle.strokeOpacity * 100}
-                onChange={(e) => handleStyleChange({ strokeOpacity: Number(e.target.value) / 100 })}
+            {layer.shapeStyle.fillType === 'solid' ? (
+              <div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleStyleChange({ fill: layer.shapeStyle.fill ? null : '#3b82f6' })}
+                    className={`w-8 h-8 rounded border border-input flex items-center justify-center ${
+                      layer.shapeStyle.fill ? '' : 'bg-background'
+                    }`}
+                    style={{ backgroundColor: layer.shapeStyle.fill ?? undefined }}
+                    title={layer.shapeStyle.fill ? 'Remove fill' : 'Add fill'}
+                  >
+                    {!layer.shapeStyle.fill && (
+                      <span className="text-xs text-muted-foreground">∅</span>
+                    )}
+                  </button>
+                  {layer.shapeStyle.fill && (
+                    <>
+                      <input
+                        type="color"
+                        value={layer.shapeStyle.fill}
+                        onChange={(e) => handleStyleChange({ fill: e.target.value })}
+                        className="w-8 h-8 rounded border border-input cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={layer.shapeStyle.fill}
+                        onChange={(e) => handleStyleChange({ fill: e.target.value })}
+                        className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <GradientPicker
+                value={layer.shapeStyle.gradient}
+                onChange={handleGradientChange}
+              />
+            )}
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] text-muted-foreground">Opacity</label>
+                <span className="text-[10px] text-muted-foreground">{Math.round(layer.shapeStyle.fillOpacity * 100)}%</span>
+              </div>
+              <Slider
+                value={[layer.shapeStyle.fillOpacity * 100]}
+                onValueChange={([opacity]) => handleStyleChange({ fillOpacity: opacity / 100 })}
                 min={0}
                 max={100}
-                className="flex-1 h-1 accent-primary"
+                step={1}
               />
-              <span className="text-[10px] text-muted-foreground w-8 text-right">
-                {Math.round(layer.shapeStyle.strokeOpacity * 100)}%
-              </span>
             </div>
           </div>
-        </>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
 
-      {(layer.shapeType === 'rectangle') && (
-        <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">Corner Radius</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              value={layer.shapeStyle.cornerRadius}
-              onChange={(e) => handleStyleChange({ cornerRadius: Number(e.target.value) })}
-              min={0}
-              max={100}
-              className="flex-1 h-1 accent-primary"
-            />
-            <span className="text-[10px] text-muted-foreground w-6 text-right">
-              {layer.shapeStyle.cornerRadius}
-            </span>
+      <Collapsible open={isStrokeOpen} onOpenChange={setIsStrokeOpen}>
+        <CollapsibleTrigger asChild>
+          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+            <span className="text-xs font-medium">Stroke</span>
+            <div className="flex items-center gap-2">
+              <div
+                className="w-5 h-5 rounded border-2"
+                style={{ borderColor: layer.shapeStyle.stroke ?? '#71717a' }}
+              />
+              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isStrokeOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleStyleChange({ stroke: layer.shapeStyle.stroke ? null : '#000000' })}
+                className={`w-8 h-8 rounded border-2 flex items-center justify-center ${
+                  layer.shapeStyle.stroke ? '' : 'border-input bg-background'
+                }`}
+                style={{ borderColor: layer.shapeStyle.stroke ?? undefined }}
+                title={layer.shapeStyle.stroke ? 'Remove stroke' : 'Add stroke'}
+              >
+                {!layer.shapeStyle.stroke && (
+                  <span className="text-xs text-muted-foreground">∅</span>
+                )}
+              </button>
+              {layer.shapeStyle.stroke && (
+                <>
+                  <input
+                    type="color"
+                    value={layer.shapeStyle.stroke}
+                    onChange={(e) => handleStyleChange({ stroke: e.target.value })}
+                    className="w-8 h-8 rounded border border-input cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={layer.shapeStyle.stroke}
+                    onChange={(e) => handleStyleChange({ stroke: e.target.value })}
+                    className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                  />
+                </>
+              )}
+            </div>
+
+            {layer.shapeStyle.stroke && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] text-muted-foreground">Width</label>
+                    <span className="text-[10px] text-muted-foreground">{layer.shapeStyle.strokeWidth}px</span>
+                  </div>
+                  <Slider
+                    value={[layer.shapeStyle.strokeWidth]}
+                    onValueChange={([width]) => handleStyleChange({ strokeWidth: width })}
+                    min={1}
+                    max={20}
+                    step={1}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] text-muted-foreground">Opacity</label>
+                    <span className="text-[10px] text-muted-foreground">{Math.round(layer.shapeStyle.strokeOpacity * 100)}%</span>
+                  </div>
+                  <Slider
+                    value={[layer.shapeStyle.strokeOpacity * 100]}
+                    onValueChange={([opacity]) => handleStyleChange({ strokeOpacity: opacity / 100 })}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                </div>
+              </>
+            )}
           </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {layer.shapeType === 'rectangle' && (
+        <div className="p-3 space-y-2 bg-secondary/50 rounded-lg">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[10px] text-muted-foreground">Corner Radius</label>
+            <span className="text-[10px] text-muted-foreground">{layer.shapeStyle.cornerRadius}px</span>
+          </div>
+          <Slider
+            value={[layer.shapeStyle.cornerRadius]}
+            onValueChange={([radius]) => handleStyleChange({ cornerRadius: radius })}
+            min={0}
+            max={100}
+            step={1}
+          />
         </div>
       )}
     </div>
