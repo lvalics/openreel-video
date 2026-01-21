@@ -45,6 +45,7 @@ interface CanvasState {
   activeResizeHandle: ResizeHandle | null;
 
   isMarqueeSelecting: boolean;
+  marqueeStart: { x: number; y: number } | null;
   marqueeRect: SelectionRect | null;
 
   guides: Guide[];
@@ -108,6 +109,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     activeResizeHandle: null,
 
     isMarqueeSelecting: false,
+    marqueeStart: null,
     marqueeRect: null,
 
     guides: [],
@@ -166,19 +168,20 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     startMarqueeSelect: (x, y) => {
       set({
         isMarqueeSelecting: true,
+        marqueeStart: { x, y },
         marqueeRect: { x, y, width: 0, height: 0 },
       });
     },
 
     updateMarqueeSelect: (x, y) => {
-      const { marqueeRect } = get();
-      if (marqueeRect) {
+      const { marqueeStart } = get();
+      if (marqueeStart) {
         set({
           marqueeRect: {
-            x: Math.min(marqueeRect.x, x),
-            y: Math.min(marqueeRect.y, y),
-            width: Math.abs(x - marqueeRect.x),
-            height: Math.abs(y - marqueeRect.y),
+            x: Math.min(marqueeStart.x, x),
+            y: Math.min(marqueeStart.y, y),
+            width: Math.abs(x - marqueeStart.x),
+            height: Math.abs(y - marqueeStart.y),
           },
         });
       }
@@ -188,6 +191,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       const { marqueeRect } = get();
       set({
         isMarqueeSelecting: false,
+        marqueeStart: null,
         marqueeRect: null,
       });
       return marqueeRect;

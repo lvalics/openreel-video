@@ -721,11 +721,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           if (layer) {
             set({
               copiedStyle: {
-                blendMode: JSON.parse(JSON.stringify(layer.blendMode)),
-                shadow: JSON.parse(JSON.stringify(layer.shadow)),
-                stroke: JSON.parse(JSON.stringify(layer.stroke)),
-                glow: JSON.parse(JSON.stringify(layer.glow)),
-                filters: JSON.parse(JSON.stringify(layer.filters)),
+                blendMode: layer.blendMode ? JSON.parse(JSON.stringify(layer.blendMode)) : DEFAULT_BLEND_MODE,
+                shadow: layer.shadow ? JSON.parse(JSON.stringify(layer.shadow)) : DEFAULT_SHADOW,
+                stroke: layer.stroke ? JSON.parse(JSON.stringify(layer.stroke)) : DEFAULT_STROKE,
+                glow: layer.glow ? JSON.parse(JSON.stringify(layer.glow)) : DEFAULT_GLOW,
+                filters: layer.filters ? JSON.parse(JSON.stringify(layer.filters)) : DEFAULT_FILTER,
               },
             });
           }
@@ -740,11 +740,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
               selectedLayerIds.forEach((layerId) => {
                 const layer = state.project!.layers[layerId];
                 if (layer) {
-                  layer.blendMode = JSON.parse(JSON.stringify(copiedStyle.blendMode));
-                  layer.shadow = JSON.parse(JSON.stringify(copiedStyle.shadow));
-                  layer.stroke = JSON.parse(JSON.stringify(copiedStyle.stroke));
-                  layer.glow = JSON.parse(JSON.stringify(copiedStyle.glow));
-                  layer.filters = JSON.parse(JSON.stringify(copiedStyle.filters));
+                  layer.blendMode = copiedStyle.blendMode ? JSON.parse(JSON.stringify(copiedStyle.blendMode)) : DEFAULT_BLEND_MODE;
+                  layer.shadow = copiedStyle.shadow ? JSON.parse(JSON.stringify(copiedStyle.shadow)) : DEFAULT_SHADOW;
+                  layer.stroke = copiedStyle.stroke ? JSON.parse(JSON.stringify(copiedStyle.stroke)) : DEFAULT_STROKE;
+                  layer.glow = copiedStyle.glow ? JSON.parse(JSON.stringify(copiedStyle.glow)) : DEFAULT_GLOW;
+                  layer.filters = copiedStyle.filters ? JSON.parse(JSON.stringify(copiedStyle.filters)) : DEFAULT_FILTER;
                 }
               });
               state.project.updatedAt = Date.now();
