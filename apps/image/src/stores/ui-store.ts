@@ -1,0 +1,123 @@
+import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
+
+export type AppView = 'welcome' | 'editor';
+export type Tool = 'select' | 'hand' | 'text' | 'shape' | 'pen' | 'eyedropper' | 'zoom';
+export type Panel = 'layers' | 'assets' | 'templates' | 'text' | 'shapes' | 'uploads';
+
+interface UIState {
+  currentView: AppView;
+  activeTool: Tool;
+  activePanel: Panel;
+  isPanelCollapsed: boolean;
+  isInspectorCollapsed: boolean;
+  zoom: number;
+  panX: number;
+  panY: number;
+  showGrid: boolean;
+  showGuides: boolean;
+  showRulers: boolean;
+  snapToGrid: boolean;
+  snapToGuides: boolean;
+  snapToObjects: boolean;
+  gridSize: number;
+  isExporting: boolean;
+  exportProgress: number;
+  notification: { type: 'success' | 'error' | 'info'; message: string } | null;
+}
+
+interface UIActions {
+  setCurrentView: (view: AppView) => void;
+  setActiveTool: (tool: Tool) => void;
+  setActivePanel: (panel: Panel) => void;
+  togglePanelCollapsed: () => void;
+  toggleInspectorCollapsed: () => void;
+  setZoom: (zoom: number) => void;
+  setPan: (x: number, y: number) => void;
+  resetView: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomToFit: () => void;
+  toggleGrid: () => void;
+  toggleGuides: () => void;
+  toggleRulers: () => void;
+  toggleSnapToGrid: () => void;
+  toggleSnapToGuides: () => void;
+  toggleSnapToObjects: () => void;
+  setGridSize: (size: number) => void;
+  setExporting: (exporting: boolean) => void;
+  setExportProgress: (progress: number) => void;
+  showNotification: (type: 'success' | 'error' | 'info', message: string) => void;
+  clearNotification: () => void;
+}
+
+const ZOOM_LEVELS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 8];
+
+export const useUIStore = create<UIState & UIActions>()(
+  subscribeWithSelector((set, get) => ({
+    currentView: 'welcome',
+    activeTool: 'select',
+    activePanel: 'layers',
+    isPanelCollapsed: false,
+    isInspectorCollapsed: false,
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    showGrid: false,
+    showGuides: true,
+    showRulers: true,
+    snapToGrid: false,
+    snapToGuides: true,
+    snapToObjects: true,
+    gridSize: 10,
+    isExporting: false,
+    exportProgress: 0,
+    notification: null,
+
+    setCurrentView: (view) => set({ currentView: view }),
+    setActiveTool: (tool) => set({ activeTool: tool }),
+    setActivePanel: (panel) => set({ activePanel: panel }),
+    togglePanelCollapsed: () => set((s) => ({ isPanelCollapsed: !s.isPanelCollapsed })),
+    toggleInspectorCollapsed: () => set((s) => ({ isInspectorCollapsed: !s.isInspectorCollapsed })),
+
+    setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(8, zoom)) }),
+    setPan: (x, y) => set({ panX: x, panY: y }),
+    resetView: () => set({ zoom: 1, panX: 0, panY: 0 }),
+
+    zoomIn: () => {
+      const { zoom } = get();
+      const nextLevel = ZOOM_LEVELS.find((l) => l > zoom) ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1];
+      set({ zoom: nextLevel });
+    },
+
+    zoomOut: () => {
+      const { zoom } = get();
+      const prevLevel = [...ZOOM_LEVELS].reverse().find((l) => l < zoom) ?? ZOOM_LEVELS[0];
+      set({ zoom: prevLevel });
+    },
+
+    zoomToFit: () => {
+      set({ zoom: 1, panX: 0, panY: 0 });
+    },
+
+    toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+    toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
+    toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
+    toggleSnapToGrid: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
+    toggleSnapToGuides: () => set((s) => ({ snapToGuides: !s.snapToGuides })),
+    toggleSnapToObjects: () => set((s) => ({ snapToObjects: !s.snapToObjects })),
+    setGridSize: (size) => set({ gridSize: size }),
+
+    setExporting: (exporting) => set({ isExporting: exporting }),
+    setExportProgress: (progress) => set({ exportProgress: progress }),
+
+    showNotification: (type, message) => {
+      set({ notification: { type, message } });
+      setTimeout(() => {
+        set({ notification: null });
+      }, 4000);
+    },
+
+    clearNotification: () => set({ notification: null }),
+  }))
+);
