@@ -9,8 +9,8 @@ export function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const { project, selectedLayerIds, selectedArtboardId, updateLayerTransform, selectLayer, deselectAllLayers } = useProjectStore();
-  const { zoom, panX, panY, setPan, activeTool, showGrid, gridSize, crop, snapToObjects, snapToGuides, snapToGrid } = useUIStore();
+  const { project, selectedLayerIds, selectedArtboardId, updateLayerTransform, selectLayer, deselectAllLayers, addPathLayer } = useProjectStore();
+  const { zoom, panX, panY, setPan, activeTool, showGrid, gridSize, crop, snapToObjects, snapToGuides, snapToGrid, penSettings, drawing, startDrawing, addDrawingPoint, finishDrawing } = useUIStore();
   const { setCanvasRef, setContainerRef, startDrag, updateDrag, endDrag, isDragging, dragMode, dragCurrentX, dragCurrentY, guides, smartGuides, setSmartGuides, clearSmartGuides } = useCanvasStore();
 
   const artboard = project?.artboards.find((a) => a.id === selectedArtboardId);
@@ -129,6 +129,31 @@ export function Canvas() {
       ctx.restore();
     });
 
+    if (drawing.isDrawing && drawing.currentPath.length > 1) {
+      ctx.save();
+      ctx.strokeStyle = penSettings.color;
+      ctx.lineWidth = penSettings.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = penSettings.opacity;
+
+      ctx.beginPath();
+      ctx.moveTo(
+        artboardX + drawing.currentPath[0].x * zoom,
+        artboardY + drawing.currentPath[0].y * zoom
+      );
+
+      for (let i = 1; i < drawing.currentPath.length; i++) {
+        ctx.lineTo(
+          artboardX + drawing.currentPath[i].x * zoom,
+          artboardY + drawing.currentPath[i].y * zoom
+        );
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (smartGuides.length > 0) {
       ctx.save();
       ctx.strokeStyle = '#f43f5e';
@@ -231,7 +256,7 @@ export function Canvas() {
     }
 
     ctx.restore();
-  }, [artboard, project, zoom, panX, panY, selectedLayerIds, showGrid, gridSize, crop, smartGuides]);
+  }, [artboard, project, zoom, panX, panY, selectedLayerIds, showGrid, gridSize, crop, smartGuides, drawing, penSettings]);
 
   useEffect(() => {
     render();
@@ -300,6 +325,11 @@ export function Canvas() {
         return;
       }
 
+      if (activeTool === 'pen') {
+        startDrawing({ x, y });
+        return;
+      }
+
       if (activeTool === 'select') {
         const layerId = findLayerAtPoint(x, y);
         if (layerId) {
@@ -314,11 +344,18 @@ export function Canvas() {
         }
       }
     },
-    [activeTool, screenToCanvas, findLayerAtPoint, selectLayer, deselectAllLayers, startDrag, selectedLayerIds]
+    [activeTool, screenToCanvas, findLayerAtPoint, selectLayer, deselectAllLayers, startDrag, selectedLayerIds, startDrawing]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      if (drawing.isDrawing) {
+        const { x, y } = screenToCanvas(e.clientX, e.clientY);
+        addDrawingPoint({ x, y });
+        render();
+        return;
+      }
+
       if (!isDragging) return;
 
       updateDrag(e.clientX, e.clientY);
@@ -367,13 +404,22 @@ export function Canvas() {
         }
       }
     },
-    [isDragging, dragMode, dragCurrentX, dragCurrentY, panX, panY, setPan, zoom, selectedLayerIds, project, updateLayerTransform, updateDrag, artboard, guides, snapToObjects, snapToGuides, snapToGrid, gridSize, setSmartGuides]
+    [isDragging, dragMode, dragCurrentX, dragCurrentY, panX, panY, setPan, zoom, selectedLayerIds, project, updateLayerTransform, updateDrag, artboard, guides, snapToObjects, snapToGuides, snapToGrid, gridSize, setSmartGuides, drawing.isDrawing, screenToCanvas, addDrawingPoint, render]
   );
 
   const handleMouseUp = useCallback(() => {
+    if (drawing.isDrawing) {
+      const path = finishDrawing();
+      if (path && path.length > 1) {
+        addPathLayer(path, penSettings.color, penSettings.width);
+      }
+      render();
+      return;
+    }
+
     endDrag();
     clearSmartGuides();
-  }, [endDrag, clearSmartGuides]);
+  }, [endDrag, clearSmartGuides, drawing.isDrawing, finishDrawing, addPathLayer, penSettings, render]);
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -437,6 +483,53 @@ function renderLayer(
   ctx.restore();
 }
 
+function applyMotionBlur(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  width: number,
+  height: number,
+  amount: number,
+  angle: number
+) {
+  const steps = Math.min(Math.ceil(amount / 2), 20);
+  const radians = (angle * Math.PI) / 180;
+  const dx = Math.cos(radians) * (amount / steps);
+  const dy = Math.sin(radians) * (amount / steps);
+
+  for (let i = -steps; i <= steps; i++) {
+    const alpha = 1 / (Math.abs(i) + 1);
+    ctx.globalAlpha = alpha / (steps * 2);
+    ctx.drawImage(img, i * dx, i * dy, width, height);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function applyRadialBlur(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  width: number,
+  height: number,
+  amount: number
+) {
+  const steps = Math.min(Math.ceil(amount / 2), 15);
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  for (let i = 0; i < steps; i++) {
+    const scale = 1 + (i * amount) / (steps * 100);
+    const alpha = 1 / (i + 1);
+    ctx.globalAlpha = alpha / steps;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(scale, scale);
+    ctx.translate(-centerX, -centerY);
+    ctx.drawImage(img, 0, 0, width, height);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function renderImageLayer(
   ctx: CanvasRenderingContext2D,
   layer: ImageLayer,
@@ -472,7 +565,14 @@ function renderImageLayer(
     if (filters.hue !== 0) {
       filterParts.push(`hue-rotate(${filters.hue}deg)`);
     }
-    if (filters.blur > 0) {
+    if (filters.sepia > 0) {
+      filterParts.push(`sepia(${filters.sepia}%)`);
+    }
+    if (filters.invert > 0) {
+      filterParts.push(`invert(${filters.invert}%)`);
+    }
+
+    if (filters.blur > 0 && filters.blurType === 'gaussian') {
       filterParts.push(`blur(${filters.blur}px)`);
     }
 
@@ -480,7 +580,13 @@ function renderImageLayer(
       ctx.filter = filterParts.join(' ');
     }
 
-    ctx.drawImage(img, 0, 0, layer.transform.width, layer.transform.height);
+    if (filters.blur > 0 && filters.blurType === 'motion') {
+      applyMotionBlur(ctx, img, layer.transform.width, layer.transform.height, filters.blur, filters.blurAngle);
+    } else if (filters.blur > 0 && filters.blurType === 'radial') {
+      applyRadialBlur(ctx, img, layer.transform.width, layer.transform.height, filters.blur);
+    } else {
+      ctx.drawImage(img, 0, 0, layer.transform.width, layer.transform.height);
+    }
 
     ctx.filter = 'none';
   }
@@ -541,12 +647,29 @@ function renderShapeLayer(ctx: CanvasRenderingContext2D, layer: ShapeLayer) {
       ctx.closePath();
       break;
 
+    case 'polygon': {
+      const cx = width / 2;
+      const cy = height / 2;
+      const radius = Math.min(width, height) / 2;
+      const sides = layer.sides ?? 6;
+      for (let i = 0; i < sides; i++) {
+        const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+        const px = cx + radius * Math.cos(angle);
+        const py = cy + radius * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    }
+
     case 'star': {
       const cx = width / 2;
       const cy = height / 2;
       const outerRadius = Math.min(width, height) / 2;
-      const innerRadius = outerRadius * 0.4;
-      const points = 5;
+      const innerRatio = layer.innerRadius ?? 0.4;
+      const innerRadius = outerRadius * innerRatio;
+      const points = layer.sides ?? 5;
       for (let i = 0; i < points * 2; i++) {
         const radius = i % 2 === 0 ? outerRadius : innerRadius;
         const angle = (i * Math.PI) / points - Math.PI / 2;
@@ -564,6 +687,28 @@ function renderShapeLayer(ctx: CanvasRenderingContext2D, layer: ShapeLayer) {
       ctx.lineTo(width, height / 2);
       break;
 
+    case 'arrow': {
+      const arrowHeadSize = Math.min(width, height) * 0.3;
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width - arrowHeadSize, height / 2);
+      ctx.moveTo(width, height / 2);
+      ctx.lineTo(width - arrowHeadSize, height / 2 - arrowHeadSize / 2);
+      ctx.moveTo(width, height / 2);
+      ctx.lineTo(width - arrowHeadSize, height / 2 + arrowHeadSize / 2);
+      break;
+    }
+
+    case 'path':
+      if (layer.points && layer.points.length > 1) {
+        ctx.moveTo(layer.points[0].x, layer.points[0].y);
+        for (let i = 1; i < layer.points.length; i++) {
+          ctx.lineTo(layer.points[i].x, layer.points[i].y);
+        }
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+      }
+      break;
+
     default:
       ctx.rect(0, 0, width, height);
   }
@@ -579,6 +724,27 @@ function renderShapeLayer(ctx: CanvasRenderingContext2D, layer: ShapeLayer) {
     ctx.strokeStyle = shapeStyle.stroke;
     ctx.lineWidth = shapeStyle.strokeWidth;
     ctx.globalAlpha *= shapeStyle.strokeOpacity;
+
+    const sw = shapeStyle.strokeWidth;
+    switch (shapeStyle.strokeDash ?? 'solid') {
+      case 'dashed':
+        ctx.setLineDash([sw * 3, sw * 2]);
+        break;
+      case 'dotted':
+        ctx.setLineDash([sw, sw * 2]);
+        ctx.lineCap = 'round';
+        break;
+      case 'dash-dot':
+        ctx.setLineDash([sw * 4, sw * 2, sw, sw * 2]);
+        break;
+      case 'long-dash':
+        ctx.setLineDash([sw * 6, sw * 3]);
+        break;
+      default:
+        ctx.setLineDash([]);
+    }
+
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 }

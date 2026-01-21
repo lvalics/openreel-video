@@ -1,4 +1,5 @@
 import { useProjectStore } from '../../../stores/project-store';
+import { useUIStore } from '../../../stores/ui-store';
 import { TransformSection } from './TransformSection';
 import { AlignmentSection } from './AlignmentSection';
 import { AppearanceSection } from './AppearanceSection';
@@ -6,14 +7,18 @@ import { EffectsSection } from './EffectsSection';
 import { ImageAdjustmentsSection } from './ImageAdjustmentsSection';
 import { FilterPresetsSection } from './FilterPresetsSection';
 import { CropSection } from './CropSection';
+import { ImageControlsSection } from './ImageControlsSection';
 import { BackgroundRemovalSection } from './BackgroundRemovalSection';
 import { TextSection } from './TextSection';
 import { ShapeSection } from './ShapeSection';
 import { ArtboardSection } from './ArtboardSection';
+import { PenSettingsSection } from './PenSettingsSection';
+import { ColorHarmonySection } from './ColorHarmonySection';
 import type { Layer, ImageLayer, TextLayer, ShapeLayer } from '../../../types/project';
 
 export function Inspector() {
   const { project, selectedLayerIds, selectedArtboardId } = useProjectStore();
+  const { activeTool } = useUIStore();
 
   const selectedLayers = selectedLayerIds
     .map((id) => project?.layers[id])
@@ -22,6 +27,14 @@ export function Inspector() {
   const singleLayer = selectedLayers.length === 1 ? selectedLayers[0] : null;
 
   if (selectedLayers.length === 0) {
+    if (activeTool === 'pen') {
+      return (
+        <div className="p-4">
+          <PenSettingsSection />
+        </div>
+      );
+    }
+
     const artboard = project?.artboards.find((a) => a.id === selectedArtboardId);
     if (artboard) {
       return (
@@ -75,6 +88,7 @@ export function Inspector() {
 
       {singleLayer.type === 'image' && (
         <>
+          <ImageControlsSection layer={singleLayer as ImageLayer} />
           <CropSection layer={singleLayer as ImageLayer} />
           <BackgroundRemovalSection layer={singleLayer as ImageLayer} />
           <FilterPresetsSection layer={singleLayer as ImageLayer} />
@@ -83,11 +97,33 @@ export function Inspector() {
       )}
 
       {singleLayer.type === 'text' && (
-        <TextSection layer={singleLayer as TextLayer} />
+        <>
+          <TextSection layer={singleLayer as TextLayer} />
+          <ColorHarmonySection
+            baseColor={(singleLayer as TextLayer).style.color}
+            onColorSelect={(color) => {
+              useProjectStore.getState().updateLayer<TextLayer>(singleLayer.id, {
+                style: { ...(singleLayer as TextLayer).style, color },
+              });
+            }}
+          />
+        </>
       )}
 
       {singleLayer.type === 'shape' && (
-        <ShapeSection layer={singleLayer as ShapeLayer} />
+        <>
+          <ShapeSection layer={singleLayer as ShapeLayer} />
+          {(singleLayer as ShapeLayer).shapeStyle.fill && (
+            <ColorHarmonySection
+              baseColor={(singleLayer as ShapeLayer).shapeStyle.fill!}
+              onColorSelect={(color) => {
+                useProjectStore.getState().updateLayer<ShapeLayer>(singleLayer.id, {
+                  shapeStyle: { ...(singleLayer as ShapeLayer).shapeStyle, fill: color },
+                });
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { useProjectStore } from '../stores/project-store';
 import { useHistoryStore } from '../stores/history-store';
 
 export function useKeyboardShortcuts() {
-  const { setActiveTool, zoomIn, zoomOut, zoomToFit, toggleGrid, toggleGuides } = useUIStore();
+  const { setActiveTool, zoomIn, zoomOut, zoomToFit, toggleGrid, toggleGuides, toggleShortcutsPanel, openSettingsDialog } = useUIStore();
   const {
     selectedLayerIds,
     removeLayer,
@@ -171,11 +171,21 @@ export function useKeyboardShortcuts() {
             e.preventDefault();
             toggleGuides();
             break;
+
+          case ',':
+            e.preventDefault();
+            openSettingsDialog();
+            break;
         }
       }
 
       if (e.key === 'Escape') {
         deselectAllLayers();
+      }
+
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        toggleShortcutsPanel();
       }
     };
 
@@ -202,6 +212,8 @@ export function useKeyboardShortcuts() {
     zoomToFit,
     toggleGrid,
     toggleGuides,
+    toggleShortcutsPanel,
+    openSettingsDialog,
     undo,
     redo,
     canUndo,

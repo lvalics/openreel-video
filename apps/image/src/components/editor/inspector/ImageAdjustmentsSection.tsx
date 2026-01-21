@@ -1,6 +1,6 @@
 import { useProjectStore } from '../../../stores/project-store';
-import type { ImageLayer, Filter } from '../../../types/project';
-import { Sun, Contrast, Palette, Thermometer, Focus, Sparkles } from 'lucide-react';
+import type { ImageLayer, Filter, BlurType } from '../../../types/project';
+import { Sun, Contrast, Palette, Thermometer, Focus, Sparkles, CircleDot, Scan, Film, Minus, Move, Target } from 'lucide-react';
 
 interface Props {
   layer: ImageLayer;
@@ -71,9 +71,15 @@ function AdjustmentSlider({ icon, label, value, min, max, defaultValue, onChange
 export function ImageAdjustmentsSection({ layer }: Props) {
   const { updateLayer } = useProjectStore();
 
-  const handleFilterChange = (key: keyof Filter, value: number) => {
+  const handleFilterChange = (key: keyof Filter, value: number | BlurType) => {
     updateLayer<ImageLayer>(layer.id, {
       filters: { ...layer.filters, [key]: value },
+    });
+  };
+
+  const handleBlurTypeChange = (type: BlurType) => {
+    updateLayer<ImageLayer>(layer.id, {
+      filters: { ...layer.filters, blurType: type },
     });
   };
 
@@ -85,7 +91,13 @@ export function ImageAdjustmentsSection({ layer }: Props) {
         saturation: 100,
         hue: 0,
         blur: 0,
+        blurType: 'gaussian',
+        blurAngle: 0,
         sharpen: 0,
+        vignette: 0,
+        grain: 0,
+        sepia: 0,
+        invert: 0,
       },
     });
   };
@@ -96,7 +108,11 @@ export function ImageAdjustmentsSection({ layer }: Props) {
     layer.filters.saturation !== 100 ||
     layer.filters.hue !== 0 ||
     layer.filters.blur !== 0 ||
-    layer.filters.sharpen !== 0;
+    layer.filters.sharpen !== 0 ||
+    layer.filters.vignette !== 0 ||
+    layer.filters.grain !== 0 ||
+    layer.filters.sepia !== 0 ||
+    layer.filters.invert !== 0;
 
   return (
     <div className="space-y-4">
@@ -170,6 +186,47 @@ export function ImageAdjustmentsSection({ layer }: Props) {
           unit="px"
         />
 
+        {layer.filters.blur > 0 && (
+          <div className="space-y-2 pl-5 border-l-2 border-primary/30">
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-foreground font-medium">Blur Type</label>
+              <div className="flex gap-1">
+                {([
+                  { type: 'gaussian' as BlurType, icon: <Focus size={12} />, label: 'Gaussian' },
+                  { type: 'motion' as BlurType, icon: <Move size={12} />, label: 'Motion' },
+                  { type: 'radial' as BlurType, icon: <Target size={12} />, label: 'Radial' },
+                ]).map(({ type, icon, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => handleBlurTypeChange(type)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
+                      layer.filters.blurType === type
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {layer.filters.blurType === 'motion' && (
+              <AdjustmentSlider
+                icon={<Move size={12} />}
+                label="Angle"
+                value={layer.filters.blurAngle}
+                min={0}
+                max={360}
+                defaultValue={0}
+                onChange={(v) => handleFilterChange('blurAngle', v)}
+                unit="°"
+              />
+            )}
+          </div>
+        )}
+
         <AdjustmentSlider
           icon={<Sparkles size={12} />}
           label="Sharpen"
@@ -178,6 +235,50 @@ export function ImageAdjustmentsSection({ layer }: Props) {
           max={100}
           defaultValue={0}
           onChange={(v) => handleFilterChange('sharpen', v)}
+          unit="%"
+        />
+
+        <AdjustmentSlider
+          icon={<CircleDot size={12} />}
+          label="Vignette"
+          value={layer.filters.vignette}
+          min={0}
+          max={100}
+          defaultValue={0}
+          onChange={(v) => handleFilterChange('vignette', v)}
+          unit="%"
+        />
+
+        <AdjustmentSlider
+          icon={<Scan size={12} />}
+          label="Grain"
+          value={layer.filters.grain}
+          min={0}
+          max={100}
+          defaultValue={0}
+          onChange={(v) => handleFilterChange('grain', v)}
+          unit="%"
+        />
+
+        <AdjustmentSlider
+          icon={<Film size={12} />}
+          label="Sepia"
+          value={layer.filters.sepia}
+          min={0}
+          max={100}
+          defaultValue={0}
+          onChange={(v) => handleFilterChange('sepia', v)}
+          unit="%"
+        />
+
+        <AdjustmentSlider
+          icon={<Minus size={12} />}
+          label="Invert"
+          value={layer.filters.invert}
+          min={0}
+          max={100}
+          defaultValue={0}
+          onChange={(v) => handleFilterChange('invert', v)}
           unit="%"
         />
       </div>

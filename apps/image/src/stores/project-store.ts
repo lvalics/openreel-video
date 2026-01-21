@@ -45,6 +45,7 @@ interface ProjectActions {
   addImageLayer: (sourceId: string, transform?: Partial<Transform>) => string;
   addTextLayer: (content: string, transform?: Partial<Transform>) => string;
   addShapeLayer: (shapeType: ShapeLayer['shapeType'], transform?: Partial<Transform>) => string;
+  addPathLayer: (points: { x: number; y: number }[], strokeColor: string, strokeWidth: number) => string;
   addGroupLayer: (childIds: string[]) => string;
   removeLayer: (layerId: string) => void;
   removeLayers: (layerIds: string[]) => void;
@@ -305,6 +306,63 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 parentId: null,
                 shapeType,
                 shapeStyle: DEFAULT_SHAPE_STYLE,
+              };
+              state.project.layers[id] = layer;
+              artboard.layerIds.unshift(id);
+              state.selectedLayerIds = [id];
+              state.project.updatedAt = Date.now();
+              state.isDirty = true;
+            }
+          }
+        });
+        return id;
+      },
+
+      addPathLayer: (points, strokeColor, strokeWidth) => {
+        const id = generateId();
+        set((state) => {
+          if (state.project && state.selectedArtboardId && points.length > 1) {
+            const artboard = state.project.artboards.find((a) => a.id === state.selectedArtboardId);
+            if (artboard) {
+              const minX = Math.min(...points.map((p) => p.x));
+              const minY = Math.min(...points.map((p) => p.y));
+              const maxX = Math.max(...points.map((p) => p.x));
+              const maxY = Math.max(...points.map((p) => p.y));
+              const width = Math.max(maxX - minX, 1);
+              const height = Math.max(maxY - minY, 1);
+
+              const normalizedPoints = points.map((p) => ({
+                x: p.x - minX,
+                y: p.y - minY,
+              }));
+
+              const layer: ShapeLayer = {
+                id,
+                name: 'Drawing',
+                type: 'shape',
+                visible: true,
+                locked: false,
+                transform: {
+                  ...DEFAULT_TRANSFORM,
+                  x: minX,
+                  y: minY,
+                  width,
+                  height,
+                },
+                blendMode: DEFAULT_BLEND_MODE,
+                shadow: DEFAULT_SHADOW,
+                stroke: DEFAULT_STROKE,
+                glow: DEFAULT_GLOW,
+                filters: DEFAULT_FILTER,
+                parentId: null,
+                shapeType: 'path',
+                shapeStyle: {
+                  ...DEFAULT_SHAPE_STYLE,
+                  fill: null,
+                  stroke: strokeColor,
+                  strokeWidth,
+                },
+                points: normalizedPoints,
               };
               state.project.layers[id] = layer;
               artboard.layerIds.unshift(id);

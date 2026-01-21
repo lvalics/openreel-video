@@ -14,6 +14,18 @@ export interface CropState {
   cropRect: { x: number; y: number; width: number; height: number } | null;
 }
 
+export interface PenSettings {
+  color: string;
+  width: number;
+  opacity: number;
+  smoothing: number;
+}
+
+export interface DrawingState {
+  isDrawing: boolean;
+  currentPath: { x: number; y: number }[];
+}
+
 interface UIState {
   currentView: AppView;
   activeTool: Tool;
@@ -35,6 +47,10 @@ interface UIState {
   notification: { type: 'success' | 'error' | 'info'; message: string } | null;
   crop: CropState;
   isExportDialogOpen: boolean;
+  showShortcutsPanel: boolean;
+  showSettingsDialog: boolean;
+  penSettings: PenSettings;
+  drawing: DrawingState;
 }
 
 interface UIActions {
@@ -67,6 +83,14 @@ interface UIActions {
   applyCrop: () => { layerId: string; cropRect: { x: number; y: number; width: number; height: number } } | null;
   openExportDialog: () => void;
   closeExportDialog: () => void;
+  toggleShortcutsPanel: () => void;
+  openSettingsDialog: () => void;
+  closeSettingsDialog: () => void;
+  setPenSettings: (settings: Partial<PenSettings>) => void;
+  startDrawing: (point: { x: number; y: number }) => void;
+  addDrawingPoint: (point: { x: number; y: number }) => void;
+  finishDrawing: () => { x: number; y: number }[] | null;
+  cancelDrawing: () => void;
 }
 
 const ZOOM_LEVELS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 8];
@@ -98,6 +122,18 @@ export const useUIStore = create<UIState & UIActions>()(
       cropRect: null,
     },
     isExportDialogOpen: false,
+    showShortcutsPanel: false,
+    showSettingsDialog: false,
+    penSettings: {
+      color: '#000000',
+      width: 4,
+      opacity: 1,
+      smoothing: 0.5,
+    },
+    drawing: {
+      isDrawing: false,
+      currentPath: [],
+    },
 
     setCurrentView: (view) => set({ currentView: view }),
     setActiveTool: (tool) => set({ activeTool: tool }),
@@ -198,5 +234,51 @@ export const useUIStore = create<UIState & UIActions>()(
 
     openExportDialog: () => set({ isExportDialogOpen: true }),
     closeExportDialog: () => set({ isExportDialogOpen: false }),
+
+    toggleShortcutsPanel: () => set((s) => ({ showShortcutsPanel: !s.showShortcutsPanel })),
+
+    openSettingsDialog: () => set({ showSettingsDialog: true }),
+    closeSettingsDialog: () => set({ showSettingsDialog: false }),
+
+    setPenSettings: (settings) =>
+      set((s) => ({
+        penSettings: { ...s.penSettings, ...settings },
+      })),
+
+    startDrawing: (point) =>
+      set({
+        drawing: {
+          isDrawing: true,
+          currentPath: [point],
+        },
+      }),
+
+    addDrawingPoint: (point) =>
+      set((s) => ({
+        drawing: {
+          ...s.drawing,
+          currentPath: [...s.drawing.currentPath, point],
+        },
+      })),
+
+    finishDrawing: () => {
+      const { drawing } = get();
+      if (!drawing.isDrawing || drawing.currentPath.length < 2) {
+        set({ drawing: { isDrawing: false, currentPath: [] } });
+        return null;
+      }
+
+      const path = [...drawing.currentPath];
+      set({ drawing: { isDrawing: false, currentPath: [] } });
+      return path;
+    },
+
+    cancelDrawing: () =>
+      set({
+        drawing: {
+          isDrawing: false,
+          currentPath: [],
+        },
+      }),
   }))
 );

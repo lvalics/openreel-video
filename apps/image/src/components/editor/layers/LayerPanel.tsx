@@ -1,6 +1,15 @@
-import { Eye, EyeOff, Lock, Unlock, Trash2, Copy, ChevronUp, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Lock, Unlock, Trash2, Copy, ChevronUp, ChevronDown, ArrowUp, ArrowDown, ArrowUpToLine, ArrowDownToLine, Clipboard, ClipboardCopy, Scissors } from 'lucide-react';
 import { useProjectStore } from '../../../stores/project-store';
 import type { Layer } from '../../../types/project';
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuCheckboxItem,
+} from '@openreel/ui';
 
 export function LayerPanel() {
   const {
@@ -13,6 +22,11 @@ export function LayerPanel() {
     duplicateLayer,
     moveLayerUp,
     moveLayerDown,
+    moveLayerToTop,
+    moveLayerToBottom,
+    copyLayers,
+    cutLayers,
+    pasteLayers,
   } = useProjectStore();
 
   const artboard = project?.artboards.find((a) => a.id === selectedArtboardId);
@@ -76,65 +90,135 @@ export function LayerPanel() {
               const isSelected = selectedLayerIds.includes(layer.id);
 
               return (
-                <div
-                  key={layer.id}
-                  onClick={() => selectLayer(layer.id)}
-                  className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-primary/20 border-l-2 border-primary'
-                      : 'hover:bg-accent border-l-2 border-transparent'
-                  }`}
-                >
-                  <span
-                    className={`w-5 h-5 flex items-center justify-center text-xs rounded ${
-                      layer.type === 'text' ? 'font-bold' : ''
-                    }`}
-                  >
-                    {getLayerIcon(layer.type)}
-                  </span>
-
-                  <span
-                    className={`flex-1 text-xs truncate ${
-                      layer.visible ? 'text-foreground' : 'text-muted-foreground'
-                    } ${layer.locked ? 'italic' : ''}`}
-                  >
-                    {layer.name}
-                  </span>
-
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => handleToggleVisibility(layer, e)}
-                      className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
-                      title={layer.visible ? 'Hide' : 'Show'}
+                <ContextMenu key={layer.id}>
+                  <ContextMenuTrigger asChild>
+                    <div
+                      onClick={() => selectLayer(layer.id)}
+                      className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-primary/20 border-l-2 border-primary'
+                          : 'hover:bg-accent border-l-2 border-transparent'
+                      }`}
                     >
-                      {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                    </button>
+                      <span
+                        className={`w-5 h-5 flex items-center justify-center text-xs rounded ${
+                          layer.type === 'text' ? 'font-bold' : ''
+                        }`}
+                      >
+                        {getLayerIcon(layer.type)}
+                      </span>
 
-                    <button
-                      onClick={(e) => handleToggleLock(layer, e)}
-                      className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
-                      title={layer.locked ? 'Unlock' : 'Lock'}
-                    >
-                      {layer.locked ? <Lock size={12} /> : <Unlock size={12} />}
-                    </button>
+                      <span
+                        className={`flex-1 text-xs truncate ${
+                          layer.visible ? 'text-foreground' : 'text-muted-foreground'
+                        } ${layer.locked ? 'italic' : ''}`}
+                      >
+                        {layer.name}
+                      </span>
 
-                    <button
-                      onClick={(e) => handleDuplicate(layer.id, e)}
-                      className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
-                      title="Duplicate"
-                    >
-                      <Copy size={12} />
-                    </button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleToggleVisibility(layer, e)}
+                          className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
+                          title={layer.visible ? 'Hide' : 'Show'}
+                        >
+                          {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                        </button>
 
-                    <button
-                      onClick={(e) => handleDelete(layer.id, e)}
-                      className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
-                      title="Delete"
+                        <button
+                          onClick={(e) => handleToggleLock(layer, e)}
+                          className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
+                          title={layer.locked ? 'Unlock' : 'Lock'}
+                        >
+                          {layer.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                        </button>
+
+                        <button
+                          onClick={(e) => handleDuplicate(layer.id, e)}
+                          className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
+                          title="Duplicate"
+                        >
+                          <Copy size={12} />
+                        </button>
+
+                        <button
+                          onClick={(e) => handleDelete(layer.id, e)}
+                          className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+                          title="Delete"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-48">
+                    <ContextMenuItem onClick={() => { selectLayer(layer.id); copyLayers(); }}>
+                      <ClipboardCopy size={14} className="mr-2" />
+                      Copy
+                      <ContextMenuShortcut>⌘C</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => { selectLayer(layer.id); cutLayers(); }}>
+                      <Scissors size={14} className="mr-2" />
+                      Cut
+                      <ContextMenuShortcut>⌘X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={pasteLayers}>
+                      <Clipboard size={14} className="mr-2" />
+                      Paste
+                      <ContextMenuShortcut>⌘V</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => duplicateLayer(layer.id)}>
+                      <Copy size={14} className="mr-2" />
+                      Duplicate
+                      <ContextMenuShortcut>⌘D</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => moveLayerToTop(layer.id)}>
+                      <ArrowUpToLine size={14} className="mr-2" />
+                      Bring to Front
+                      <ContextMenuShortcut>⌘⇧]</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => moveLayerUp(layer.id)}>
+                      <ArrowUp size={14} className="mr-2" />
+                      Bring Forward
+                      <ContextMenuShortcut>⌘]</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => moveLayerDown(layer.id)}>
+                      <ArrowDown size={14} className="mr-2" />
+                      Send Backward
+                      <ContextMenuShortcut>⌘[</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => moveLayerToBottom(layer.id)}>
+                      <ArrowDownToLine size={14} className="mr-2" />
+                      Send to Back
+                      <ContextMenuShortcut>⌘⇧[</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuCheckboxItem
+                      checked={layer.visible}
+                      onCheckedChange={() => updateLayer(layer.id, { visible: !layer.visible })}
                     >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
+                      {layer.visible ? <Eye size={14} className="mr-2" /> : <EyeOff size={14} className="mr-2" />}
+                      Visible
+                    </ContextMenuCheckboxItem>
+                    <ContextMenuCheckboxItem
+                      checked={layer.locked}
+                      onCheckedChange={() => updateLayer(layer.id, { locked: !layer.locked })}
+                    >
+                      {layer.locked ? <Lock size={14} className="mr-2" /> : <Unlock size={14} className="mr-2" />}
+                      Locked
+                    </ContextMenuCheckboxItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      onClick={() => removeLayer(layer.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 size={14} className="mr-2" />
+                      Delete
+                      <ContextMenuShortcut>⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
           </div>

@@ -37,13 +37,21 @@ export interface Glow {
   intensity: number;
 }
 
+export type BlurType = 'gaussian' | 'motion' | 'radial';
+
 export interface Filter {
   brightness: number;
   contrast: number;
   saturation: number;
   hue: number;
   blur: number;
+  blurType: BlurType;
+  blurAngle: number;
   sharpen: number;
+  vignette: number;
+  grain: number;
+  sepia: number;
+  invert: number;
 }
 
 export interface BaseLayer {
@@ -105,6 +113,8 @@ export interface Gradient {
 
 export type FillType = 'solid' | 'gradient';
 
+export type StrokeDashType = 'solid' | 'dashed' | 'dotted' | 'dash-dot' | 'long-dash';
+
 export interface ShapeStyle {
   fillType: FillType;
   fill: string | null;
@@ -113,6 +123,7 @@ export interface ShapeStyle {
   stroke: string | null;
   strokeWidth: number;
   strokeOpacity: number;
+  strokeDash: StrokeDashType;
   cornerRadius: number;
 }
 
@@ -234,7 +245,13 @@ export const DEFAULT_FILTER: Filter = {
   saturation: 100,
   hue: 0,
   blur: 0,
+  blurType: 'gaussian',
+  blurAngle: 0,
   sharpen: 0,
+  vignette: 0,
+  grain: 0,
+  sepia: 0,
+  invert: 0,
 };
 
 export const DEFAULT_TEXT_STYLE: TextStyle = {
@@ -259,6 +276,7 @@ export const DEFAULT_SHAPE_STYLE: ShapeStyle = {
   stroke: null,
   strokeWidth: 2,
   strokeOpacity: 1,
+  strokeDash: 'solid',
   cornerRadius: 0,
 };
 

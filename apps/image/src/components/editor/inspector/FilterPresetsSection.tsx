@@ -20,97 +20,97 @@ const FILTER_PRESETS: FilterPreset[] = [
     id: 'original',
     name: 'Original',
     category: 'basic',
-    filters: { brightness: 100, contrast: 100, saturation: 100, hue: 0, blur: 0, sharpen: 0 },
+    filters: { brightness: 100, contrast: 100, saturation: 100, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'vivid',
     name: 'Vivid',
     category: 'basic',
-    filters: { brightness: 105, contrast: 115, saturation: 130, hue: 0, blur: 0, sharpen: 10 },
+    filters: { brightness: 105, contrast: 115, saturation: 130, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 10, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'warm',
     name: 'Warm',
     category: 'mood',
-    filters: { brightness: 105, contrast: 105, saturation: 110, hue: 15, blur: 0, sharpen: 0 },
+    filters: { brightness: 105, contrast: 105, saturation: 110, hue: 15, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'cool',
     name: 'Cool',
     category: 'mood',
-    filters: { brightness: 100, contrast: 105, saturation: 95, hue: -15, blur: 0, sharpen: 0 },
+    filters: { brightness: 100, contrast: 105, saturation: 95, hue: -15, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'bw',
     name: 'B&W',
     category: 'basic',
-    filters: { brightness: 105, contrast: 115, saturation: 0, hue: 0, blur: 0, sharpen: 5 },
+    filters: { brightness: 105, contrast: 115, saturation: 0, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 5, vignette: 20, grain: 5, sepia: 0, invert: 0 },
   },
   {
     id: 'vintage',
     name: 'Vintage',
     category: 'vintage',
-    filters: { brightness: 95, contrast: 90, saturation: 75, hue: 20, blur: 0, sharpen: 0 },
+    filters: { brightness: 95, contrast: 90, saturation: 75, hue: 20, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 30, grain: 15, sepia: 20, invert: 0 },
   },
   {
     id: 'fade',
     name: 'Fade',
     category: 'vintage',
-    filters: { brightness: 110, contrast: 85, saturation: 80, hue: 0, blur: 0, sharpen: 0 },
+    filters: { brightness: 110, contrast: 85, saturation: 80, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 15, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'dramatic',
     name: 'Dramatic',
     category: 'cinematic',
-    filters: { brightness: 95, contrast: 130, saturation: 90, hue: 0, blur: 0, sharpen: 15 },
+    filters: { brightness: 95, contrast: 130, saturation: 90, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 15, vignette: 25, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'moody',
     name: 'Moody',
     category: 'mood',
-    filters: { brightness: 90, contrast: 110, saturation: 85, hue: -10, blur: 0, sharpen: 5 },
+    filters: { brightness: 90, contrast: 110, saturation: 85, hue: -10, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 5, vignette: 35, grain: 5, sepia: 0, invert: 0 },
   },
   {
     id: 'bright',
     name: 'Bright',
     category: 'basic',
-    filters: { brightness: 120, contrast: 105, saturation: 105, hue: 0, blur: 0, sharpen: 0 },
+    filters: { brightness: 120, contrast: 105, saturation: 105, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'sepia',
     name: 'Sepia',
     category: 'vintage',
-    filters: { brightness: 105, contrast: 95, saturation: 40, hue: 35, blur: 0, sharpen: 0 },
+    filters: { brightness: 105, contrast: 95, saturation: 40, hue: 35, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 20, grain: 10, sepia: 50, invert: 0 },
   },
   {
     id: 'cinematic',
     name: 'Cinematic',
     category: 'cinematic',
-    filters: { brightness: 95, contrast: 115, saturation: 95, hue: -5, blur: 0, sharpen: 10 },
+    filters: { brightness: 95, contrast: 115, saturation: 95, hue: -5, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 10, vignette: 20, grain: 3, sepia: 0, invert: 0 },
   },
   {
     id: 'pop',
     name: 'Pop',
     category: 'mood',
-    filters: { brightness: 110, contrast: 120, saturation: 140, hue: 5, blur: 0, sharpen: 5 },
+    filters: { brightness: 110, contrast: 120, saturation: 140, hue: 5, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 5, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'matte',
     name: 'Matte',
     category: 'cinematic',
-    filters: { brightness: 105, contrast: 85, saturation: 90, hue: 0, blur: 0, sharpen: 0 },
+    filters: { brightness: 105, contrast: 85, saturation: 90, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 10, grain: 0, sepia: 0, invert: 0 },
   },
   {
     id: 'retro',
     name: 'Retro',
     category: 'vintage',
-    filters: { brightness: 100, contrast: 95, saturation: 70, hue: 25, blur: 0, sharpen: 0 },
+    filters: { brightness: 100, contrast: 95, saturation: 70, hue: 25, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 0, vignette: 25, grain: 20, sepia: 15, invert: 0 },
   },
   {
     id: 'punch',
     name: 'Punch',
     category: 'basic',
-    filters: { brightness: 100, contrast: 125, saturation: 115, hue: 0, blur: 0, sharpen: 20 },
+    filters: { brightness: 100, contrast: 125, saturation: 115, hue: 0, blur: 0, blurType: 'gaussian', blurAngle: 0, sharpen: 20, vignette: 0, grain: 0, sepia: 0, invert: 0 },
   },
 ];
 
@@ -121,7 +121,13 @@ function filtersMatch(a: Filter, b: Filter): boolean {
     a.saturation === b.saturation &&
     a.hue === b.hue &&
     a.blur === b.blur &&
-    a.sharpen === b.sharpen
+    a.blurType === b.blurType &&
+    a.blurAngle === b.blurAngle &&
+    a.sharpen === b.sharpen &&
+    a.vignette === b.vignette &&
+    a.grain === b.grain &&
+    a.sepia === b.sepia &&
+    a.invert === b.invert
   );
 }
 
@@ -133,7 +139,13 @@ function interpolateFilters(target: Filter, intensity: number): Filter {
     saturation: Math.round(lerp(100, target.saturation)),
     hue: Math.round(lerp(0, target.hue)),
     blur: Math.round(lerp(0, target.blur)),
+    blurType: target.blurType,
+    blurAngle: Math.round(lerp(0, target.blurAngle)),
     sharpen: Math.round(lerp(0, target.sharpen)),
+    vignette: Math.round(lerp(0, target.vignette)),
+    grain: Math.round(lerp(0, target.grain)),
+    sepia: Math.round(lerp(0, target.sepia)),
+    invert: Math.round(lerp(0, target.invert)),
   };
 }
 

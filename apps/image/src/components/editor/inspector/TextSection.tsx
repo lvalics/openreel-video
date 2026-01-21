@@ -1,6 +1,6 @@
 import { useProjectStore } from '../../../stores/project-store';
 import type { TextLayer, TextStyle } from '../../../types/project';
-import { AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline } from 'lucide-react';
+import { AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, CaseUpper, CaseLower, CaseSensitive } from 'lucide-react';
 import { FontPicker } from '../../ui/FontPicker';
 
 interface Props {
@@ -38,6 +38,21 @@ export function TextSection({ layer }: Props) {
     handleStyleChange({
       textDecoration: layer.style.textDecoration === 'underline' ? 'none' : 'underline',
     });
+  };
+
+  const transformToUppercase = () => {
+    handleContentChange(layer.content.toUpperCase());
+  };
+
+  const transformToLowercase = () => {
+    handleContentChange(layer.content.toLowerCase());
+  };
+
+  const transformToCapitalize = () => {
+    const capitalized = layer.content
+      .toLowerCase()
+      .replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
+    handleContentChange(capitalized);
   };
 
   return (
@@ -164,6 +179,30 @@ export function TextSection({ layer }: Props) {
           title="Align Right"
         >
           <AlignRight size={14} />
+        </button>
+
+        <div className="w-px bg-border mx-1" />
+
+        <button
+          onClick={transformToUppercase}
+          className="p-2 rounded-md transition-colors bg-secondary text-secondary-foreground hover:bg-accent"
+          title="UPPERCASE"
+        >
+          <CaseUpper size={14} />
+        </button>
+        <button
+          onClick={transformToLowercase}
+          className="p-2 rounded-md transition-colors bg-secondary text-secondary-foreground hover:bg-accent"
+          title="lowercase"
+        >
+          <CaseLower size={14} />
+        </button>
+        <button
+          onClick={transformToCapitalize}
+          className="p-2 rounded-md transition-colors bg-secondary text-secondary-foreground hover:bg-accent"
+          title="Capitalize"
+        >
+          <CaseSensitive size={14} />
         </button>
       </div>
 

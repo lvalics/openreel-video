@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import type { ShapeLayer, ShapeStyle, Gradient, FillType } from '../../../types/project';
+import type { ShapeLayer, ShapeStyle, Gradient, FillType, StrokeDashType } from '../../../types/project';
 import { Slider } from '@openreel/ui';
 import { GradientPicker } from '../../ui/GradientPicker';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@openreel/ui';
 import { ChevronDown } from 'lucide-react';
+
+const DASH_PATTERNS: { value: StrokeDashType; label: string; preview: string }[] = [
+  { value: 'solid', label: 'Solid', preview: '━━━━━━' },
+  { value: 'dashed', label: 'Dashed', preview: '─ ─ ─ ─' },
+  { value: 'dotted', label: 'Dotted', preview: '· · · · ·' },
+  { value: 'dash-dot', label: 'Dash-Dot', preview: '─ · ─ ·' },
+  { value: 'long-dash', label: 'Long Dash', preview: '── ── ──' },
+];
 
 interface Props {
   layer: ShapeLayer;
@@ -226,6 +234,26 @@ export function ShapeSection({ layer }: Props) {
                     step={1}
                   />
                 </div>
+
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1.5 block">Dash Pattern</label>
+                  <div className="grid grid-cols-1 gap-1">
+                    {DASH_PATTERNS.map((pattern) => (
+                      <button
+                        key={pattern.value}
+                        onClick={() => handleStyleChange({ strokeDash: pattern.value })}
+                        className={`flex items-center justify-between px-2 py-1.5 text-xs rounded-md transition-colors ${
+                          (layer.shapeStyle.strokeDash ?? 'solid') === pattern.value
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                        }`}
+                      >
+                        <span>{pattern.label}</span>
+                        <span className="font-mono text-[10px] opacity-70">{pattern.preview}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -245,6 +273,53 @@ export function ShapeSection({ layer }: Props) {
             max={100}
             step={1}
           />
+        </div>
+      )}
+
+      {layer.shapeType === 'polygon' && (
+        <div className="p-3 space-y-2 bg-secondary/50 rounded-lg">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[10px] text-muted-foreground">Sides</label>
+            <span className="text-[10px] text-muted-foreground">{layer.sides ?? 6}</span>
+          </div>
+          <Slider
+            value={[layer.sides ?? 6]}
+            onValueChange={([sides]) => updateLayer<ShapeLayer>(layer.id, { sides })}
+            min={3}
+            max={12}
+            step={1}
+          />
+        </div>
+      )}
+
+      {layer.shapeType === 'star' && (
+        <div className="p-3 space-y-3 bg-secondary/50 rounded-lg">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] text-muted-foreground">Points</label>
+              <span className="text-[10px] text-muted-foreground">{layer.sides ?? 5}</span>
+            </div>
+            <Slider
+              value={[layer.sides ?? 5]}
+              onValueChange={([sides]) => updateLayer<ShapeLayer>(layer.id, { sides })}
+              min={3}
+              max={20}
+              step={1}
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] text-muted-foreground">Inner Radius</label>
+              <span className="text-[10px] text-muted-foreground">{Math.round((layer.innerRadius ?? 0.4) * 100)}%</span>
+            </div>
+            <Slider
+              value={[Math.round((layer.innerRadius ?? 0.4) * 100)]}
+              onValueChange={([ratio]) => updateLayer<ShapeLayer>(layer.id, { innerRadius: ratio / 100 })}
+              min={10}
+              max={90}
+              step={1}
+            />
+          </div>
         </div>
       )}
     </div>
