@@ -25,6 +25,7 @@ export function Rulers({ containerWidth, containerHeight }: RulersProps) {
 
   useEffect(() => {
     if (!showRulers || !artboard) return;
+    if (containerWidth <= RULER_SIZE || containerHeight <= RULER_SIZE) return;
 
     const hCanvas = horizontalRef.current;
     const vCanvas = verticalRef.current;
@@ -34,10 +35,10 @@ export function Rulers({ containerWidth, containerHeight }: RulersProps) {
     const vCtx = vCanvas.getContext('2d');
     if (!hCtx || !vCtx) return;
 
-    hCanvas.width = containerWidth;
+    hCanvas.width = containerWidth - RULER_SIZE;
     hCanvas.height = RULER_SIZE;
     vCanvas.width = RULER_SIZE;
-    vCanvas.height = containerHeight;
+    vCanvas.height = containerHeight - RULER_SIZE;
 
     const centerX = containerWidth / 2 + panX;
     const centerY = containerHeight / 2 + panY;

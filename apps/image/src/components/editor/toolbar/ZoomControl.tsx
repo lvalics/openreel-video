@@ -25,7 +25,8 @@ export function ZoomControl() {
   const { project } = useProjectStore();
 
   const handleZoomToFit = () => {
-    const artboard = project?.artboards.find((a) => a.id === project.activeArtboardId);
+    const activeId = project?.activeArtboardId;
+    const artboard = activeId ? project?.artboards.find((a) => a.id === activeId) : null;
     if (!artboard) {
       resetView();
       return;
@@ -33,6 +34,11 @@ export function ZoomControl() {
 
     const viewportWidth = window.innerWidth - 600;
     const viewportHeight = window.innerHeight - 200;
+
+    if (artboard.size.width <= 0 || artboard.size.height <= 0) {
+      resetView();
+      return;
+    }
 
     const fitZoom = Math.min(
       viewportWidth / artboard.size.width,
@@ -44,7 +50,8 @@ export function ZoomControl() {
   };
 
   const handleZoomToFill = () => {
-    const artboard = project?.artboards.find((a) => a.id === project.activeArtboardId);
+    const activeId = project?.activeArtboardId;
+    const artboard = activeId ? project?.artboards.find((a) => a.id === activeId) : null;
     if (!artboard) {
       resetView();
       return;
@@ -52,6 +59,11 @@ export function ZoomControl() {
 
     const viewportWidth = window.innerWidth - 600;
     const viewportHeight = window.innerHeight - 200;
+
+    if (artboard.size.width <= 0 || artboard.size.height <= 0) {
+      resetView();
+      return;
+    }
 
     const fillZoom = Math.max(
       viewportWidth / artboard.size.width,

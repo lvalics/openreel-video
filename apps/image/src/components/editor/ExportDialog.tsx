@@ -100,11 +100,11 @@ export function ExportDialog({ open, onClose }: ExportDialogProps) {
   }, [artboard, sizeMode, effectiveScale, customWidth, customHeight]);
 
   useEffect(() => {
-    if (artboard && customWidth === 0 && customHeight === 0) {
+    if (artboard) {
       setCustomWidth(artboard.size.width);
       setCustomHeight(artboard.size.height);
     }
-  }, [artboard, customWidth, customHeight]);
+  }, [artboard?.id]);
 
   const handleCustomWidthChange = (newWidth: number) => {
     setCustomWidth(newWidth);

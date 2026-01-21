@@ -661,43 +661,46 @@ function renderTextLayer(ctx: CanvasRenderingContext2D, layer: TextLayer) {
   }
 
   let fillStyle: string | CanvasGradient = style.color;
-  if (style.fillType === 'gradient' && style.gradient) {
-    const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+  if (style.fillType === 'gradient' && style.gradient && lines.length > 0) {
+    const lineWidths = lines.map((line) => ctx.measureText(line).width);
+    const textWidth = lineWidths.length > 0 ? Math.max(...lineWidths) : 0;
     const textHeight = lines.length * lineHeight;
 
-    let gradientStartX = 0;
-    if (style.textAlign === 'center') gradientStartX = (transform.width - textWidth) / 2;
-    else if (style.textAlign === 'right') gradientStartX = transform.width - textWidth;
+    if (textWidth > 0 && textHeight > 0) {
+      let gradientStartX = 0;
+      if (style.textAlign === 'center') gradientStartX = (transform.width - textWidth) / 2;
+      else if (style.textAlign === 'right') gradientStartX = transform.width - textWidth;
 
-    if (style.gradient.type === 'linear') {
-      const angleRad = (style.gradient.angle * Math.PI) / 180;
-      const cos = Math.cos(angleRad);
-      const sin = Math.sin(angleRad);
-      const halfWidth = textWidth / 2;
-      const halfHeight = textHeight / 2;
-      const len = Math.abs(halfWidth * cos) + Math.abs(halfHeight * sin);
+      if (style.gradient.type === 'linear') {
+        const angleRad = (style.gradient.angle * Math.PI) / 180;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        const halfWidth = textWidth / 2;
+        const halfHeight = textHeight / 2;
+        const len = Math.abs(halfWidth * cos) + Math.abs(halfHeight * sin);
 
-      const centerX = gradientStartX + halfWidth;
-      const centerY = halfHeight;
-      const gradient = ctx.createLinearGradient(
-        centerX - len * cos,
-        centerY - len * sin,
-        centerX + len * cos,
-        centerY + len * sin
-      );
-      style.gradient.stops.forEach((stop) => {
-        gradient.addColorStop(stop.offset, stop.color);
-      });
-      fillStyle = gradient;
-    } else {
-      const centerX = gradientStartX + textWidth / 2;
-      const centerY = textHeight / 2;
-      const radius = Math.max(textWidth, textHeight) / 2;
-      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-      style.gradient.stops.forEach((stop) => {
-        gradient.addColorStop(stop.offset, stop.color);
-      });
-      fillStyle = gradient;
+        const centerX = gradientStartX + halfWidth;
+        const centerY = halfHeight;
+        const gradient = ctx.createLinearGradient(
+          centerX - len * cos,
+          centerY - len * sin,
+          centerX + len * cos,
+          centerY + len * sin
+        );
+        style.gradient.stops.forEach((stop) => {
+          gradient.addColorStop(stop.offset, stop.color);
+        });
+        fillStyle = gradient;
+      } else {
+        const centerX = gradientStartX + textWidth / 2;
+        const centerY = textHeight / 2;
+        const radius = Math.max(textWidth, textHeight) / 2;
+        const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        style.gradient.stops.forEach((stop) => {
+          gradient.addColorStop(stop.offset, stop.color);
+        });
+        fillStyle = gradient;
+      }
     }
   }
 
