@@ -1,6 +1,7 @@
-import { Eye, EyeOff, Lock, Unlock, Trash2, Copy, ChevronUp, ChevronDown, ArrowUp, ArrowDown, ArrowUpToLine, ArrowDownToLine, Clipboard, ClipboardCopy, Scissors, Paintbrush } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Eye, EyeOff, Lock, Unlock, Trash2, Copy, ChevronUp, ChevronDown, ArrowUp, ArrowDown, ArrowUpToLine, ArrowDownToLine, Clipboard, ClipboardCopy, Scissors, Paintbrush, Search, X, Image, Type, Hexagon, Folder } from 'lucide-react';
 import { useProjectStore } from '../../../stores/project-store';
-import type { Layer } from '../../../types/project';
+import type { Layer, LayerType } from '../../../types/project';
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -9,7 +10,17 @@ import {
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuCheckboxItem,
+  Slider,
 } from '@openreel/ui';
+
+type FilterType = 'all' | LayerType;
+
+const LAYER_TYPE_ICONS: Record<LayerType, React.ReactNode> = {
+  image: <Image size={12} />,
+  text: <Type size={12} />,
+  shape: <Hexagon size={12} />,
+  group: <Folder size={12} />,
+};
 
 export function LayerPanel() {
   const {
@@ -18,7 +29,9 @@ export function LayerPanel() {
     selectedArtboardId,
     copiedStyle,
     selectLayer,
+    selectLayers,
     updateLayer,
+    updateLayerTransform,
     removeLayer,
     duplicateLayer,
     moveLayerUp,
@@ -32,8 +45,56 @@ export function LayerPanel() {
     pasteLayerStyle,
   } = useProjectStore();
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
   const artboard = project?.artboards.find((a) => a.id === selectedArtboardId);
-  const layers = artboard?.layerIds.map((id) => project?.layers[id]).filter(Boolean) as Layer[] ?? [];
+  const allLayers = artboard?.layerIds.map((id) => project?.layers[id]).filter(Boolean) as Layer[] ?? [];
+
+  const layers = allLayers.filter((layer) => {
+    const matchesSearch = searchQuery === '' || layer.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = filterType === 'all' || layer.type === filterType;
+    return matchesSearch && matchesType;
+  });
+
+  const handleSelectAllByType = (type: LayerType) => {
+    const layerIds = allLayers.filter((l) => l.type === type).map((l) => l.id);
+    if (layerIds.length > 0) {
+      selectLayers(layerIds);
+    }
+  };
+
+  const handleStartRename = (layer: Layer) => {
+    setEditingLayerId(layer.id);
+    setEditingName(layer.name);
+  };
+
+  const handleFinishRename = () => {
+    if (editingLayerId && editingName.trim()) {
+      updateLayer(editingLayerId, { name: editingName.trim() });
+    }
+    setEditingLayerId(null);
+    setEditingName('');
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleFinishRename();
+    } else if (e.key === 'Escape') {
+      setEditingLayerId(null);
+      setEditingName('');
+    }
+  };
+
+  useEffect(() => {
+    if (editingLayerId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingLayerId]);
 
   const handleToggleVisibility = (layer: Layer, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -75,8 +136,53 @@ export function LayerPanel() {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <h3 className="text-xs font-medium text-foreground">Layers</h3>
         <span className="text-[10px] text-muted-foreground">
-          {layers.length} {layers.length === 1 ? 'layer' : 'layers'}
+          {layers.length}/{allLayers.length}
         </span>
+      </div>
+
+      <div className="px-2 py-2 border-b border-border space-y-2">
+        <div className="relative">
+          <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search layers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-7 pr-7 py-1.5 text-[11px] bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex gap-1">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`flex-1 px-1.5 py-1 text-[10px] rounded transition-colors ${
+              filterType === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'
+            }`}
+          >
+            All
+          </button>
+          {(['image', 'text', 'shape', 'group'] as LayerType[]).map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilterType(filterType === type ? 'all' : type)}
+              onDoubleClick={() => handleSelectAllByType(type)}
+              className={`p-1.5 rounded transition-colors ${
+                filterType === type ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'
+              }`}
+              title={`Filter ${type}s (double-click to select all)`}
+            >
+              {LAYER_TYPE_ICONS[type]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -111,13 +217,31 @@ export function LayerPanel() {
                         {getLayerIcon(layer.type)}
                       </span>
 
-                      <span
-                        className={`flex-1 text-xs truncate ${
-                          layer.visible ? 'text-foreground' : 'text-muted-foreground'
-                        } ${layer.locked ? 'italic' : ''}`}
-                      >
-                        {layer.name}
-                      </span>
+                      {editingLayerId === layer.id ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onBlur={handleFinishRename}
+                          onKeyDown={handleRenameKeyDown}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 text-xs bg-background border border-primary rounded px-1 py-0.5 focus:outline-none"
+                        />
+                      ) : (
+                        <span
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            handleStartRename(layer);
+                          }}
+                          className={`flex-1 text-xs truncate ${
+                            layer.visible ? 'text-foreground' : 'text-muted-foreground'
+                          } ${layer.locked ? 'italic' : ''}`}
+                          title="Double-click to rename"
+                        >
+                          {layer.name}
+                        </span>
+                      )}
 
                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -238,21 +362,37 @@ export function LayerPanel() {
       </div>
 
       {selectedLayerIds.length === 1 && (
-        <div className="flex items-center justify-center gap-1 p-2 border-t border-border">
-          <button
-            onClick={() => moveLayerUp(selectedLayerIds[0])}
-            className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-            title="Move up (Cmd+])"
-          >
-            <ChevronUp size={14} />
-          </button>
-          <button
-            onClick={() => moveLayerDown(selectedLayerIds[0])}
-            className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-            title="Move down (Cmd+[)"
-          >
-            <ChevronDown size={14} />
-          </button>
+        <div className="p-2 border-t border-border space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground w-12">Opacity</span>
+            <Slider
+              value={[project?.layers[selectedLayerIds[0]]?.transform.opacity ?? 1]}
+              onValueChange={([opacity]) => updateLayerTransform(selectedLayerIds[0], { opacity })}
+              min={0}
+              max={1}
+              step={0.01}
+              className="flex-1"
+            />
+            <span className="text-[10px] text-muted-foreground w-8 text-right">
+              {Math.round((project?.layers[selectedLayerIds[0]]?.transform.opacity ?? 1) * 100)}%
+            </span>
+          </div>
+          <div className="flex items-center justify-center gap-1">
+            <button
+              onClick={() => moveLayerUp(selectedLayerIds[0])}
+              className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Move up (Cmd+])"
+            >
+              <ChevronUp size={14} />
+            </button>
+            <button
+              onClick={() => moveLayerDown(selectedLayerIds[0])}
+              className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Move down (Cmd+[)"
+            >
+              <ChevronDown size={14} />
+            </button>
+          </div>
         </div>
       )}
     </div>

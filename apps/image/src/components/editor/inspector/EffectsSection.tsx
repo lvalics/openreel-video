@@ -1,22 +1,30 @@
 import { useProjectStore } from '../../../stores/project-store';
-import type { Layer, Shadow, Stroke, Glow } from '../../../types/project';
+import type { Layer, Shadow, InnerShadow, Stroke, Glow } from '../../../types/project';
 import { Slider } from '@openreel/ui';
 import { Switch } from '@openreel/ui';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@openreel/ui';
-import { ChevronDown, Droplets, Pencil, Sparkles } from 'lucide-react';
+import { ChevronDown, Droplets, Pencil, Sparkles, CircleDot } from 'lucide-react';
 import { useState } from 'react';
 
 interface Props {
   layer: Layer;
 }
 
+type EffectSection = 'shadow' | 'innerShadow' | 'stroke' | 'glow' | null;
+
 export function EffectsSection({ layer }: Props) {
   const { updateLayer } = useProjectStore();
-  const [openSection, setOpenSection] = useState<'shadow' | 'stroke' | 'glow' | null>('shadow');
+  const [openSection, setOpenSection] = useState<EffectSection>('shadow');
 
   const handleShadowChange = (updates: Partial<Shadow>) => {
     updateLayer(layer.id, {
       shadow: { ...layer.shadow, ...updates },
+    });
+  };
+
+  const handleInnerShadowChange = (updates: Partial<InnerShadow>) => {
+    updateLayer(layer.id, {
+      innerShadow: { ...(layer.innerShadow ?? { enabled: false, color: 'rgba(0, 0, 0, 0.5)', blur: 10, offsetX: 2, offsetY: 2 }), ...updates },
     });
   };
 
@@ -119,6 +127,94 @@ export function EffectsSection({ layer }: Props) {
                   max={50}
                   step={1}
                   disabled={!layer.shadow.enabled}
+                />
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible open={openSection === 'innerShadow'} onOpenChange={(open) => setOpenSection(open ? 'innerShadow' : null)}>
+        <CollapsibleTrigger asChild>
+          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+            <div className="flex items-center gap-2">
+              <CircleDot size={14} className="text-muted-foreground" />
+              <span className="text-xs font-medium">Inner Shadow</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={layer.innerShadow?.enabled ?? false}
+                onCheckedChange={(enabled) => handleInnerShadowChange({ enabled })}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${openSection === 'innerShadow' ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
+            <div>
+              <label className="block text-[10px] text-muted-foreground mb-1.5">Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={(layer.innerShadow?.color ?? 'rgba(0, 0, 0, 0.5)').startsWith('rgba') ? '#000000' : layer.innerShadow?.color ?? '#000000'}
+                  onChange={(e) => handleInnerShadowChange({ color: e.target.value })}
+                  className="w-8 h-8 rounded border border-input cursor-pointer"
+                  disabled={!layer.innerShadow?.enabled}
+                />
+                <input
+                  type="text"
+                  value={layer.innerShadow?.color ?? 'rgba(0, 0, 0, 0.5)'}
+                  onChange={(e) => handleInnerShadowChange({ color: e.target.value })}
+                  className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono disabled:opacity-50"
+                  disabled={!layer.innerShadow?.enabled}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] text-muted-foreground">Blur</label>
+                <span className="text-[10px] text-muted-foreground">{layer.innerShadow?.blur ?? 10}px</span>
+              </div>
+              <Slider
+                value={[layer.innerShadow?.blur ?? 10]}
+                onValueChange={([blur]) => handleInnerShadowChange({ blur })}
+                min={0}
+                max={50}
+                step={1}
+                disabled={!layer.innerShadow?.enabled}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] text-muted-foreground">Offset X</label>
+                  <span className="text-[10px] text-muted-foreground">{layer.innerShadow?.offsetX ?? 2}px</span>
+                </div>
+                <Slider
+                  value={[layer.innerShadow?.offsetX ?? 2]}
+                  onValueChange={([offsetX]) => handleInnerShadowChange({ offsetX })}
+                  min={-30}
+                  max={30}
+                  step={1}
+                  disabled={!layer.innerShadow?.enabled}
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] text-muted-foreground">Offset Y</label>
+                  <span className="text-[10px] text-muted-foreground">{layer.innerShadow?.offsetY ?? 2}px</span>
+                </div>
+                <Slider
+                  value={[layer.innerShadow?.offsetY ?? 2]}
+                  onValueChange={([offsetY]) => handleInnerShadowChange({ offsetY })}
+                  min={-30}
+                  max={30}
+                  step={1}
+                  disabled={!layer.innerShadow?.enabled}
                 />
               </div>
             </div>

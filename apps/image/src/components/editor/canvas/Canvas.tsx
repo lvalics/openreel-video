@@ -572,6 +572,7 @@ function renderLayer(
 ) {
   const { transform } = layer;
   const shadow = layer.shadow ?? { enabled: false, color: 'rgba(0, 0, 0, 0.5)', blur: 10, offsetX: 0, offsetY: 4 };
+  const innerShadow = layer.innerShadow ?? { enabled: false, color: 'rgba(0, 0, 0, 0.5)', blur: 10, offsetX: 2, offsetY: 2 };
   const glow = layer.glow ?? { enabled: false, color: '#ffffff', blur: 20, intensity: 1 };
   const blendMode = layer.blendMode?.mode ?? 'normal';
 
@@ -609,6 +610,10 @@ function renderLayer(
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
+  if (innerShadow.enabled && innerShadow.blur > 0) {
+    renderInnerShadow(ctx, layer, innerShadow);
+  }
+
   ctx.restore();
 }
 
@@ -628,6 +633,46 @@ function renderLayerContent(
       renderShapeLayer(ctx, layer as ShapeLayer);
       break;
   }
+}
+
+function renderInnerShadow(
+  ctx: CanvasRenderingContext2D,
+  layer: Layer,
+  innerShadow: { color: string; blur: number; offsetX: number; offsetY: number }
+) {
+  const { width, height } = layer.transform;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, width, height);
+  ctx.clip();
+
+  ctx.shadowColor = innerShadow.color;
+  ctx.shadowBlur = innerShadow.blur;
+  ctx.shadowOffsetX = innerShadow.offsetX;
+  ctx.shadowOffsetY = innerShadow.offsetY;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+  ctx.globalCompositeOperation = 'source-atop';
+
+  const spread = innerShadow.blur + Math.max(Math.abs(innerShadow.offsetX), Math.abs(innerShadow.offsetY)) + 50;
+
+  ctx.beginPath();
+  ctx.moveTo(-spread, -spread);
+  ctx.lineTo(width + spread, -spread);
+  ctx.lineTo(width + spread, height + spread);
+  ctx.lineTo(-spread, height + spread);
+  ctx.closePath();
+
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, height);
+  ctx.lineTo(width, height);
+  ctx.lineTo(width, 0);
+  ctx.closePath();
+
+  ctx.fill('evenodd');
+
+  ctx.restore();
 }
 
 function applyMotionBlur(
@@ -991,10 +1036,62 @@ function renderShapeLayer(ctx: CanvasRenderingContext2D, layer: ShapeLayer) {
       ctx.rect(0, 0, width, height);
   }
 
-  if (shapeStyle.fill) {
-    ctx.fillStyle = shapeStyle.fill;
+  const fillType = shapeStyle.fillType ?? 'solid';
+  const hasFill = fillType === 'solid' ? !!shapeStyle.fill : fillType === 'gradient' ? !!shapeStyle.gradient : fillType === 'noise' ? !!shapeStyle.noise : false;
+
+  if (hasFill) {
     ctx.globalAlpha *= shapeStyle.fillOpacity;
-    ctx.fill();
+
+    if (fillType === 'noise' && shapeStyle.noise) {
+      ctx.fillStyle = shapeStyle.noise.baseColor;
+      ctx.fill();
+
+      ctx.save();
+      ctx.clip();
+
+      const { noise } = shapeStyle;
+      const noiseSize = noise.size;
+      const density = noise.density;
+
+      ctx.fillStyle = noise.noiseColor;
+      for (let y = 0; y < height; y += noiseSize) {
+        for (let x = 0; x < width; x += noiseSize) {
+          if (Math.random() < density) {
+            ctx.fillRect(x, y, noiseSize, noiseSize);
+          }
+        }
+      }
+
+      ctx.restore();
+    } else if (fillType === 'gradient' && shapeStyle.gradient) {
+      let gradient: CanvasGradient;
+      if (shapeStyle.gradient.type === 'linear') {
+        const angleRad = (shapeStyle.gradient.angle * Math.PI) / 180;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const len = Math.abs(halfW * cos) + Math.abs(halfH * sin);
+        gradient = ctx.createLinearGradient(
+          halfW - len * cos,
+          halfH - len * sin,
+          halfW + len * cos,
+          halfH + len * sin
+        );
+      } else {
+        const radius = Math.max(width, height) / 2;
+        gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, radius);
+      }
+      shapeStyle.gradient.stops.forEach((stop) => {
+        gradient.addColorStop(stop.offset, stop.color);
+      });
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    } else if (shapeStyle.fill) {
+      ctx.fillStyle = shapeStyle.fill;
+      ctx.fill();
+    }
+
     ctx.globalAlpha /= shapeStyle.fillOpacity;
   }
 

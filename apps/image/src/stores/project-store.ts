@@ -14,6 +14,7 @@ import {
   DEFAULT_TRANSFORM,
   DEFAULT_BLEND_MODE,
   DEFAULT_SHADOW,
+  DEFAULT_INNER_SHADOW,
   DEFAULT_STROKE,
   DEFAULT_GLOW,
   DEFAULT_FILTER,
@@ -26,6 +27,7 @@ import {
 interface LayerStyle {
   blendMode: Layer['blendMode'];
   shadow: Layer['shadow'];
+  innerShadow: Layer['innerShadow'];
   stroke: Layer['stroke'];
   glow: Layer['glow'];
   filters: Layer['filters'];
@@ -230,6 +232,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 },
                 blendMode: DEFAULT_BLEND_MODE,
                 shadow: DEFAULT_SHADOW,
+                innerShadow: DEFAULT_INNER_SHADOW,
                 stroke: DEFAULT_STROKE,
                 glow: DEFAULT_GLOW,
                 filters: DEFAULT_FILTER,
@@ -272,6 +275,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 },
                 blendMode: DEFAULT_BLEND_MODE,
                 shadow: DEFAULT_SHADOW,
+                innerShadow: DEFAULT_INNER_SHADOW,
                 stroke: DEFAULT_STROKE,
                 glow: DEFAULT_GLOW,
                 filters: DEFAULT_FILTER,
@@ -313,6 +317,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 },
                 blendMode: DEFAULT_BLEND_MODE,
                 shadow: DEFAULT_SHADOW,
+                innerShadow: DEFAULT_INNER_SHADOW,
                 stroke: DEFAULT_STROKE,
                 glow: DEFAULT_GLOW,
                 filters: DEFAULT_FILTER,
@@ -364,6 +369,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 },
                 blendMode: DEFAULT_BLEND_MODE,
                 shadow: DEFAULT_SHADOW,
+                innerShadow: DEFAULT_INNER_SHADOW,
                 stroke: DEFAULT_STROKE,
                 glow: DEFAULT_GLOW,
                 filters: DEFAULT_FILTER,
@@ -403,6 +409,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 transform: DEFAULT_TRANSFORM,
                 blendMode: DEFAULT_BLEND_MODE,
                 shadow: DEFAULT_SHADOW,
+                innerShadow: DEFAULT_INNER_SHADOW,
                 stroke: DEFAULT_STROKE,
                 glow: DEFAULT_GLOW,
                 filters: DEFAULT_FILTER,
@@ -723,6 +730,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
               copiedStyle: {
                 blendMode: layer.blendMode ? JSON.parse(JSON.stringify(layer.blendMode)) : DEFAULT_BLEND_MODE,
                 shadow: layer.shadow ? JSON.parse(JSON.stringify(layer.shadow)) : DEFAULT_SHADOW,
+                innerShadow: layer.innerShadow ? JSON.parse(JSON.stringify(layer.innerShadow)) : DEFAULT_INNER_SHADOW,
                 stroke: layer.stroke ? JSON.parse(JSON.stringify(layer.stroke)) : DEFAULT_STROKE,
                 glow: layer.glow ? JSON.parse(JSON.stringify(layer.glow)) : DEFAULT_GLOW,
                 filters: layer.filters ? JSON.parse(JSON.stringify(layer.filters)) : DEFAULT_FILTER,
@@ -742,6 +750,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 if (layer) {
                   layer.blendMode = copiedStyle.blendMode ? JSON.parse(JSON.stringify(copiedStyle.blendMode)) : DEFAULT_BLEND_MODE;
                   layer.shadow = copiedStyle.shadow ? JSON.parse(JSON.stringify(copiedStyle.shadow)) : DEFAULT_SHADOW;
+                  layer.innerShadow = copiedStyle.innerShadow ? JSON.parse(JSON.stringify(copiedStyle.innerShadow)) : DEFAULT_INNER_SHADOW;
                   layer.stroke = copiedStyle.stroke ? JSON.parse(JSON.stringify(copiedStyle.stroke)) : DEFAULT_STROKE;
                   layer.glow = copiedStyle.glow ? JSON.parse(JSON.stringify(copiedStyle.glow)) : DEFAULT_GLOW;
                   layer.filters = copiedStyle.filters ? JSON.parse(JSON.stringify(copiedStyle.filters)) : DEFAULT_FILTER;

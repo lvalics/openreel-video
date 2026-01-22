@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import type { ShapeLayer, ShapeStyle, Gradient, FillType, StrokeDashType } from '../../../types/project';
+import type { ShapeLayer, ShapeStyle, Gradient, FillType, StrokeDashType, NoiseFill } from '../../../types/project';
+import { DEFAULT_NOISE_FILL } from '../../../types/project';
 import { Slider } from '@openreel/ui';
 import { GradientPicker } from '../../ui/GradientPicker';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@openreel/ui';
@@ -42,9 +43,23 @@ export function ShapeSection({ layer }: Props) {
           ],
         },
       });
+    } else if (fillType === 'noise' && !layer.shapeStyle.noise) {
+      handleStyleChange({
+        fillType,
+        noise: {
+          ...DEFAULT_NOISE_FILL,
+          baseColor: layer.shapeStyle.fill ?? DEFAULT_NOISE_FILL.baseColor,
+        },
+      });
     } else {
       handleStyleChange({ fillType });
     }
+  };
+
+  const handleNoiseChange = (updates: Partial<NoiseFill>) => {
+    handleStyleChange({
+      noise: { ...(layer.shapeStyle.noise ?? DEFAULT_NOISE_FILL), ...updates },
+    });
   };
 
   const handleGradientChange = (gradient: Gradient) => {
@@ -79,10 +94,10 @@ export function ShapeSection({ layer }: Props) {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-3 gap-1">
               <button
                 onClick={() => handleFillTypeChange('solid')}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                className={`px-2 py-1.5 text-xs rounded-md transition-colors ${
                   layer.shapeStyle.fillType === 'solid'
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-accent'
@@ -92,7 +107,7 @@ export function ShapeSection({ layer }: Props) {
               </button>
               <button
                 onClick={() => handleFillTypeChange('gradient')}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                className={`px-2 py-1.5 text-xs rounded-md transition-colors ${
                   layer.shapeStyle.fillType === 'gradient'
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-accent'
@@ -100,9 +115,19 @@ export function ShapeSection({ layer }: Props) {
               >
                 Gradient
               </button>
+              <button
+                onClick={() => handleFillTypeChange('noise')}
+                className={`px-2 py-1.5 text-xs rounded-md transition-colors ${
+                  layer.shapeStyle.fillType === 'noise'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-accent'
+                }`}
+              >
+                Noise
+              </button>
             </div>
 
-            {layer.shapeStyle.fillType === 'solid' ? (
+            {layer.shapeStyle.fillType === 'solid' && (
               <div>
                 <div className="flex items-center gap-2">
                   <button
@@ -135,11 +160,78 @@ export function ShapeSection({ layer }: Props) {
                   )}
                 </div>
               </div>
-            ) : (
+            )}
+
+            {layer.shapeStyle.fillType === 'gradient' && (
               <GradientPicker
                 value={layer.shapeStyle.gradient}
                 onChange={handleGradientChange}
               />
+            )}
+
+            {layer.shapeStyle.fillType === 'noise' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1.5">Base Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={layer.shapeStyle.noise?.baseColor ?? DEFAULT_NOISE_FILL.baseColor}
+                      onChange={(e) => handleNoiseChange({ baseColor: e.target.value })}
+                      className="w-8 h-8 rounded border border-input cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={layer.shapeStyle.noise?.baseColor ?? DEFAULT_NOISE_FILL.baseColor}
+                      onChange={(e) => handleNoiseChange({ baseColor: e.target.value })}
+                      className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1.5">Noise Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={layer.shapeStyle.noise?.noiseColor ?? DEFAULT_NOISE_FILL.noiseColor}
+                      onChange={(e) => handleNoiseChange({ noiseColor: e.target.value })}
+                      className="w-8 h-8 rounded border border-input cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={layer.shapeStyle.noise?.noiseColor ?? DEFAULT_NOISE_FILL.noiseColor}
+                      onChange={(e) => handleNoiseChange({ noiseColor: e.target.value })}
+                      className="flex-1 px-2 py-1.5 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] text-muted-foreground">Density</label>
+                    <span className="text-[10px] text-muted-foreground">{Math.round((layer.shapeStyle.noise?.density ?? 0.5) * 100)}%</span>
+                  </div>
+                  <Slider
+                    value={[(layer.shapeStyle.noise?.density ?? 0.5) * 100]}
+                    onValueChange={([density]) => handleNoiseChange({ density: density / 100 })}
+                    min={5}
+                    max={100}
+                    step={1}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[10px] text-muted-foreground">Grain Size</label>
+                    <span className="text-[10px] text-muted-foreground">{layer.shapeStyle.noise?.size ?? 2}px</span>
+                  </div>
+                  <Slider
+                    value={[layer.shapeStyle.noise?.size ?? 2]}
+                    onValueChange={([size]) => handleNoiseChange({ size })}
+                    min={1}
+                    max={10}
+                    step={1}
+                  />
+                </div>
+              </div>
             )}
 
             <div>

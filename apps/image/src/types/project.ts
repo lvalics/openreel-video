@@ -37,6 +37,14 @@ export interface Glow {
   intensity: number;
 }
 
+export interface InnerShadow {
+  enabled: boolean;
+  color: string;
+  blur: number;
+  offsetX: number;
+  offsetY: number;
+}
+
 export type BlurType = 'gaussian' | 'motion' | 'radial';
 
 export interface Filter {
@@ -63,6 +71,7 @@ export interface BaseLayer {
   transform: Transform;
   blendMode: BlendMode;
   shadow: Shadow;
+  innerShadow: InnerShadow;
   stroke: Stroke;
   glow: Glow;
   filters: Filter;
@@ -128,7 +137,7 @@ export interface Gradient {
   stops: GradientStop[];
 }
 
-export type FillType = 'solid' | 'gradient';
+export type FillType = 'solid' | 'gradient' | 'noise';
 
 export type StrokeDashType = 'solid' | 'dashed' | 'dotted' | 'dash-dot' | 'long-dash';
 
@@ -139,10 +148,18 @@ export interface CornerRadius {
   bottomLeft: number;
 }
 
+export interface NoiseFill {
+  baseColor: string;
+  noiseColor: string;
+  density: number;
+  size: number;
+}
+
 export interface ShapeStyle {
   fillType: FillType;
   fill: string | null;
   gradient: Gradient | null;
+  noise: NoiseFill | null;
   fillOpacity: number;
   stroke: string | null;
   strokeWidth: number;
@@ -265,6 +282,14 @@ export const DEFAULT_GLOW: Glow = {
   intensity: 1,
 };
 
+export const DEFAULT_INNER_SHADOW: InnerShadow = {
+  enabled: false,
+  color: 'rgba(0, 0, 0, 0.5)',
+  blur: 10,
+  offsetX: 2,
+  offsetY: 2,
+};
+
 export const DEFAULT_FILTER: Filter = {
   brightness: 100,
   contrast: 100,
@@ -307,10 +332,18 @@ export const DEFAULT_TEXT_STYLE: TextStyle = {
   },
 };
 
+export const DEFAULT_NOISE_FILL: NoiseFill = {
+  baseColor: '#3b82f6',
+  noiseColor: '#1e40af',
+  density: 0.5,
+  size: 2,
+};
+
 export const DEFAULT_SHAPE_STYLE: ShapeStyle = {
   fillType: 'solid',
   fill: '#3b82f6',
   gradient: null,
+  noise: null,
   fillOpacity: 1,
   stroke: null,
   strokeWidth: 2,
