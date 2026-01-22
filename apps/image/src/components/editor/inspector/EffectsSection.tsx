@@ -1,8 +1,6 @@
 import { useProjectStore } from '../../../stores/project-store';
 import type { Layer, Shadow, InnerShadow, Stroke, Glow } from '../../../types/project';
 import { Slider } from '@openreel/ui';
-import { Switch } from '@openreel/ui';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@openreel/ui';
 import { ChevronDown, Droplets, Pencil, Sparkles, CircleDot } from 'lucide-react';
 import { useState } from 'react';
 
@@ -11,6 +9,43 @@ interface Props {
 }
 
 type EffectSection = 'shadow' | 'innerShadow' | 'stroke' | 'glow' | null;
+
+interface EffectHeaderProps {
+  icon: React.ElementType;
+  label: string;
+  enabled: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+  onEnabledChange: (enabled: boolean) => void;
+}
+
+function EffectHeader({ icon: Icon, label, enabled, isOpen, onToggle, onEnabledChange }: EffectHeaderProps) {
+  return (
+    <div className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+      <button
+        onClick={onToggle}
+        className="flex items-center gap-2 flex-1 text-left"
+      >
+        <Icon size={14} className="text-muted-foreground" />
+        <span className="text-xs font-medium">{label}</span>
+      </button>
+      <div className="flex items-center gap-2">
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => onEnabledChange(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-8 h-4 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4" />
+        </label>
+        <button onClick={onToggle} className="p-0.5">
+          <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function EffectsSection({ layer }: Props) {
   const { updateLayer } = useProjectStore();
@@ -40,30 +75,23 @@ export function EffectsSection({ layer }: Props) {
     });
   };
 
-  return (
-    <div className="space-y-2">
-      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Effects
-      </h4>
+  const toggleSection = (section: EffectSection) => {
+    setOpenSection(openSection === section ? null : section);
+  };
 
-      <Collapsible open={openSection === 'shadow'} onOpenChange={(open) => setOpenSection(open ? 'shadow' : null)}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-            <div className="flex items-center gap-2">
-              <Droplets size={14} className="text-muted-foreground" />
-              <span className="text-xs font-medium">Drop Shadow</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={layer.shadow.enabled}
-                onCheckedChange={(enabled) => handleShadowChange({ enabled })}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${openSection === 'shadow' ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+  return (
+    <div className="px-4 space-y-2">
+
+      <div>
+        <EffectHeader
+          icon={Droplets}
+          label="Drop Shadow"
+          enabled={layer.shadow.enabled}
+          isOpen={openSection === 'shadow'}
+          onToggle={() => toggleSection('shadow')}
+          onEnabledChange={(enabled) => handleShadowChange({ enabled })}
+        />
+        {openSection === 'shadow' && (
           <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
             <div>
               <label className="block text-[10px] text-muted-foreground mb-1.5">Color</label>
@@ -131,27 +159,19 @@ export function EffectsSection({ layer }: Props) {
               </div>
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        )}
+      </div>
 
-      <Collapsible open={openSection === 'innerShadow'} onOpenChange={(open) => setOpenSection(open ? 'innerShadow' : null)}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-            <div className="flex items-center gap-2">
-              <CircleDot size={14} className="text-muted-foreground" />
-              <span className="text-xs font-medium">Inner Shadow</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={layer.innerShadow?.enabled ?? false}
-                onCheckedChange={(enabled) => handleInnerShadowChange({ enabled })}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${openSection === 'innerShadow' ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+      <div>
+        <EffectHeader
+          icon={CircleDot}
+          label="Inner Shadow"
+          enabled={layer.innerShadow?.enabled ?? false}
+          isOpen={openSection === 'innerShadow'}
+          onToggle={() => toggleSection('innerShadow')}
+          onEnabledChange={(enabled) => handleInnerShadowChange({ enabled })}
+        />
+        {openSection === 'innerShadow' && (
           <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
             <div>
               <label className="block text-[10px] text-muted-foreground mb-1.5">Color</label>
@@ -219,27 +239,19 @@ export function EffectsSection({ layer }: Props) {
               </div>
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        )}
+      </div>
 
-      <Collapsible open={openSection === 'stroke'} onOpenChange={(open) => setOpenSection(open ? 'stroke' : null)}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-            <div className="flex items-center gap-2">
-              <Pencil size={14} className="text-muted-foreground" />
-              <span className="text-xs font-medium">Stroke</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={layer.stroke.enabled}
-                onCheckedChange={(enabled) => handleStrokeChange({ enabled })}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${openSection === 'stroke' ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+      <div>
+        <EffectHeader
+          icon={Pencil}
+          label="Stroke"
+          enabled={layer.stroke.enabled}
+          isOpen={openSection === 'stroke'}
+          onToggle={() => toggleSection('stroke')}
+          onEnabledChange={(enabled) => handleStrokeChange({ enabled })}
+        />
+        {openSection === 'stroke' && (
           <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
             <div>
               <label className="block text-[10px] text-muted-foreground mb-1.5">Color</label>
@@ -296,27 +308,19 @@ export function EffectsSection({ layer }: Props) {
               </div>
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        )}
+      </div>
 
-      <Collapsible open={openSection === 'glow'} onOpenChange={(open) => setOpenSection(open ? 'glow' : null)}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
-            <div className="flex items-center gap-2">
-              <Sparkles size={14} className="text-muted-foreground" />
-              <span className="text-xs font-medium">Outer Glow</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={layer.glow.enabled}
-                onCheckedChange={(enabled) => handleGlowChange({ enabled })}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <ChevronDown size={14} className={`text-muted-foreground transition-transform ${openSection === 'glow' ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+      <div>
+        <EffectHeader
+          icon={Sparkles}
+          label="Outer Glow"
+          enabled={layer.glow.enabled}
+          isOpen={openSection === 'glow'}
+          onToggle={() => toggleSection('glow')}
+          onEnabledChange={(enabled) => handleGlowChange({ enabled })}
+        />
+        {openSection === 'glow' && (
           <div className="p-3 space-y-3 bg-background/50 rounded-b-lg border border-t-0 border-border">
             <div>
               <label className="block text-[10px] text-muted-foreground mb-1.5">Color</label>
@@ -368,8 +372,8 @@ export function EffectsSection({ layer }: Props) {
               />
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        )}
+      </div>
     </div>
   );
 }

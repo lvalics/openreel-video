@@ -27,7 +27,7 @@ export interface SnapResult {
   guides: SmartGuide[];
 }
 
-export type DragMode = 'none' | 'move' | 'resize' | 'rotate' | 'marquee' | 'pan';
+export type DragMode = 'none' | 'move' | 'resize' | 'rotate' | 'marquee' | 'pan' | 'paint' | 'crop';
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
 interface CanvasState {

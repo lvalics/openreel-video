@@ -7,6 +7,18 @@ import type { Layer, ImageLayer, TextLayer, ShapeLayer, GroupLayer } from '../..
 import { Rulers } from './Rulers';
 import { ContextMenu, type ContextMenuPosition, type ContextMenuType } from './ContextMenu';
 import { hasActiveAdjustments, applyAllAdjustments, type LayerAdjustments } from '../../../utils/apply-adjustments';
+import { getToolCursor } from '../../../utils/cursors';
+import { floodFill, type FloodFillOptions } from '../../../utils/flood-fill';
+import { SmudgeTool } from '../../../tools/paint/smudge';
+import { BlurSharpenTool } from '../../../tools/paint/blur-sharpen';
+import { EraserTool } from '../../../tools/paint/eraser';
+import { BrushTool } from '../../../tools/paint/brush';
+import { DEFAULT_BRUSH_DYNAMICS } from '../../../tools/brush/brush-engine';
+import { DodgeBurnTool } from '../../../tools/retouch/dodge-burn';
+import { SpongeTool } from '../../../tools/retouch/sponge';
+import { CloneStampTool } from '../../../tools/retouch/clone-stamp';
+import { HealingBrushTool } from '../../../tools/retouch/healing-brush';
+import { SpotHealingTool } from '../../../tools/retouch/spot-healing';
 
 const RULER_SIZE = 20;
 const HANDLE_SIZE = 8;
@@ -46,8 +58,9 @@ function getLayerHash(
   let contentHash = '';
   if (layer.type === 'image') {
     const imgLayer = layer as ImageLayer;
-    const { filters } = imgLayer;
-    contentHash = `img-${imgLayer.sourceId}-${filters.brightness}-${filters.contrast}-${filters.saturation}-${filters.hue}-${filters.blur}-${filters.blurType}-${filters.sepia}-${filters.invert}-${filters.exposure}-${filters.highlights}-${filters.shadows}-${filters.clarity}-${filters.vibrance}`;
+    const { filters, cropRect } = imgLayer;
+    const cropHash = cropRect ? `${cropRect.x}-${cropRect.y}-${cropRect.width}-${cropRect.height}` : 'no-crop';
+    contentHash = `img-${imgLayer.sourceId}-${cropHash}-${filters.brightness}-${filters.contrast}-${filters.saturation}-${filters.hue}-${filters.blur}-${filters.blurType}-${filters.sepia}-${filters.invert}-${filters.exposure}-${filters.highlights}-${filters.shadows}-${filters.clarity}-${filters.vibrance}`;
   } else if (layer.type === 'text') {
     const textLayer = layer as TextLayer;
     const { style, content } = textLayer;
@@ -131,8 +144,11 @@ function clearLayerCache(layerIds?: Set<string>): void {
   });
 }
 
+const failedImages = new Set<string>();
+
 function getCachedImage(src: string): HTMLImageElement | null {
   if (!src) return null;
+  if (failedImages.has(src)) return null;
 
   const cached = imageCache.get(src);
   if (cached && cached.complete && cached.naturalWidth > 0) {
@@ -157,17 +173,26 @@ function getCachedImage(src: string): HTMLImageElement | null {
     }
 
     const img = new window.Image();
-    img.src = src;
     imageCache.set(src, img);
     imageCacheOrder.push(src);
 
-    if (!img.complete) {
-      img.onload = () => {
-        if (renderCallback) {
-          renderCallback();
-        }
-      };
-    }
+    img.onload = () => {
+      if (renderCallback) {
+        renderCallback();
+      }
+    };
+
+    img.onerror = () => {
+      failedImages.add(src);
+      imageCache.delete(src);
+      const idx = imageCacheOrder.indexOf(src);
+      if (idx > -1) {
+        imageCacheOrder.splice(idx, 1);
+      }
+      console.warn(`Failed to load image: ${src.substring(0, 100)}`);
+    };
+
+    img.src = src;
   }
 
   const img = imageCache.get(src);
@@ -253,7 +278,7 @@ export function Canvas() {
     groupLayers,
     ungroupLayers,
   } = useProjectStore();
-  const { zoom, panX, panY, setPan, setZoom, activeTool, showGrid, showRulers, toggleGrid, toggleRulers, gridSize, crop, snapToObjects, snapToGuides, snapToGrid, penSettings, drawing, startDrawing, addDrawingPoint, finishDrawing } = useUIStore();
+  const { zoom, panX, panY, setPan, setZoom, activeTool, showGrid, showRulers, toggleGrid, toggleRulers, gridSize, crop, snapToObjects, snapToGuides, snapToGrid, penSettings, brushSettings, eraserSettings, drawing, startDrawing, addDrawingPoint, finishDrawing, startCrop, updateCropRect, setBrushSettings, gradientSettings, paintBucketSettings, smudgeSettings, blurSharpenSettings, dodgeBurnSettings, spongeSettings, cloneStampSettings, healingBrushSettings, spotHealingSettings } = useUIStore();
   const { setCanvasRef, setContainerRef, startDrag, updateDrag, endDrag, isDragging, dragMode, dragStartX, dragStartY, dragCurrentX, dragCurrentY, guides, smartGuides, setSmartGuides, clearSmartGuides, isMarqueeSelecting, marqueeRect, startMarqueeSelect, updateMarqueeSelect, endMarqueeSelect, activeResizeHandle, setActiveResizeHandle } = useCanvasStore();
   const [cursorStyle, setCursorStyle] = useState('default');
   const initialTransformRef = useRef<{ x: number; y: number; width: number; height: number; rotation: number } | null>(null);
@@ -262,6 +287,26 @@ export function Canvas() {
     position: ContextMenuPosition;
     type: ContextMenuType;
   } | null>(null);
+
+  const [gradientDrag, setGradientDrag] = useState<{
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    layerId: string;
+  } | null>(null);
+
+  const smudgeToolRef = useRef<SmudgeTool | null>(null);
+  const blurSharpenToolRef = useRef<BlurSharpenTool | null>(null);
+  const eraserToolRef = useRef<EraserTool | null>(null);
+  const brushToolRef = useRef<BrushTool | null>(null);
+  const dodgeBurnToolRef = useRef<DodgeBurnTool | null>(null);
+  const spongeToolRef = useRef<SpongeTool | null>(null);
+  const cloneStampToolRef = useRef<CloneStampTool | null>(null);
+  const healingBrushToolRef = useRef<HealingBrushTool | null>(null);
+  const spotHealingToolRef = useRef<SpotHealingTool | null>(null);
+  const paintCanvasRef = useRef<OffscreenCanvas | null>(null);
+  const paintLayerIdRef = useRef<string | null>(null);
 
   const artboard = project?.artboards.find((a) => a.id === selectedArtboardId);
 
@@ -285,7 +330,9 @@ export function Canvas() {
       canvas.height = container.clientHeight;
     }
 
-    const renderHash = `${zoom}-${panX}-${panY}-${selectedLayerIds.join(',')}-${project.updatedAt}-${showGrid}-${drawing.isDrawing}-${isMarqueeSelecting}`;
+    const marqueeHash = marqueeRect ? `${marqueeRect.x}-${marqueeRect.y}-${marqueeRect.width}-${marqueeRect.height}` : 'none';
+    const gradientHash = gradientDrag ? `${gradientDrag.startX}-${gradientDrag.startY}-${gradientDrag.endX}-${gradientDrag.endY}` : 'none';
+    const renderHash = `${zoom}-${panX}-${panY}-${selectedLayerIds.join(',')}-${project.updatedAt}-${showGrid}-${drawing.isDrawing}-${drawing.currentPath?.length ?? 0}-${isMarqueeSelecting}-${marqueeHash}-${gradientHash}`;
     if (renderHash === lastRenderHashRef.current && !forceRenderRef.current) {
       return;
     }
@@ -415,11 +462,17 @@ export function Canvas() {
 
     if (drawing.isDrawing && drawing.currentPath.length > 1) {
       ctx.save();
-      ctx.strokeStyle = penSettings.color;
-      ctx.lineWidth = penSettings.width;
+      if (activeTool === 'brush') {
+        ctx.strokeStyle = brushSettings.color;
+        ctx.lineWidth = brushSettings.size;
+        ctx.globalAlpha = brushSettings.opacity;
+      } else {
+        ctx.strokeStyle = penSettings.color;
+        ctx.lineWidth = penSettings.width;
+        ctx.globalAlpha = penSettings.opacity;
+      }
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.globalAlpha = penSettings.opacity;
 
       ctx.beginPath();
       ctx.moveTo(
@@ -435,6 +488,62 @@ export function Canvas() {
       }
 
       ctx.stroke();
+      ctx.restore();
+    }
+
+    if (gradientDrag && activeTool === 'gradient') {
+      ctx.save();
+
+      const gStartX = artboardX + gradientDrag.startX * zoom;
+      const gStartY = artboardY + gradientDrag.startY * zoom;
+      const gEndX = artboardX + gradientDrag.endX * zoom;
+      const gEndY = artboardY + gradientDrag.endY * zoom;
+
+      const colors = gradientSettings.reverse
+        ? [...gradientSettings.colors].reverse()
+        : gradientSettings.colors;
+
+      const minX = Math.min(gStartX, gEndX);
+      const minY = Math.min(gStartY, gEndY);
+      const maxX = Math.max(gStartX, gEndX);
+      const maxY = Math.max(gStartY, gEndY);
+      const previewWidth = Math.max(maxX - minX, 50);
+      const previewHeight = Math.max(maxY - minY, 50);
+
+      let gradient: CanvasGradient;
+      if (gradientSettings.type === 'radial') {
+        const centerX = (gStartX + gEndX) / 2;
+        const centerY = (gStartY + gEndY) / 2;
+        const radius = Math.sqrt(previewWidth ** 2 + previewHeight ** 2) / 2;
+        gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+      } else {
+        gradient = ctx.createLinearGradient(gStartX, gStartY, gEndX, gEndY);
+      }
+
+      colors.forEach((color, i) => {
+        gradient.addColorStop(i / Math.max(colors.length - 1, 1), color);
+      });
+
+      ctx.fillStyle = gradient;
+      ctx.globalAlpha = gradientSettings.opacity;
+      ctx.fillRect(minX, minY, previewWidth, previewHeight);
+
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(gStartX, gStartY);
+      ctx.lineTo(gEndX, gEndY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(gStartX, gStartY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(gEndX, gEndY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.restore();
     }
 
@@ -557,7 +666,7 @@ export function Canvas() {
     }
 
     ctx.restore();
-  }, [artboard, project, zoom, panX, panY, selectedLayerIds, showGrid, gridSize, crop, smartGuides, drawing, penSettings, isMarqueeSelecting, marqueeRect]);
+  }, [artboard, project, zoom, panX, panY, selectedLayerIds, showGrid, gridSize, crop, smartGuides, drawing, penSettings, brushSettings, activeTool, isMarqueeSelecting, marqueeRect]);
 
   const scheduleRender = useCallback(() => {
     if (renderScheduledRef.current) return;
@@ -747,6 +856,487 @@ export function Canvas() {
         return;
       }
 
+      if (activeTool === 'marquee-rect' || activeTool === 'marquee-ellipse') {
+        deselectAllLayers();
+        startMarqueeSelect(x, y);
+        startDrag('marquee', e.clientX, e.clientY);
+        return;
+      }
+
+      if (activeTool === 'lasso' || activeTool === 'lasso-polygon' || activeTool === 'magic-wand') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId) {
+          selectLayer(layerId);
+        } else {
+          deselectAllLayers();
+        }
+        return;
+      }
+
+      if (activeTool === 'free-transform' || activeTool === 'warp' || activeTool === 'perspective' || activeTool === 'liquify') {
+        const handleHit = getHandleAtPoint(canvasX, canvasY);
+        if (handleHit) {
+          const layer = project?.layers[handleHit.layerId];
+          if (layer) {
+            initialTransformRef.current = {
+              x: layer.transform.x,
+              y: layer.transform.y,
+              width: layer.transform.width,
+              height: layer.transform.height,
+              rotation: layer.transform.rotation,
+            };
+            if (handleHit.handle === 'rotate') {
+              startDrag('rotate', e.clientX, e.clientY);
+            } else {
+              setActiveResizeHandle(handleHit.handle);
+              startDrag('resize', e.clientX, e.clientY);
+            }
+            return;
+          }
+        }
+
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId) {
+          if (!selectedLayerIds.includes(layerId)) {
+            selectLayer(layerId);
+          }
+          startDrag('move', e.clientX, e.clientY);
+        }
+        return;
+      }
+
+      if (activeTool === 'brush') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId && project) {
+          const layer = project.layers[layerId];
+          if (layer?.type === 'image') {
+            const imageLayer = layer as ImageLayer;
+            const asset = project.assets[imageLayer.sourceId];
+            const src = asset?.blobUrl ?? asset?.dataUrl;
+            if (src) {
+              const img = getCachedImage(src);
+              if (img && img.complete && img.naturalWidth > 0) {
+                const tempCanvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0);
+                  paintCanvasRef.current = tempCanvas;
+                  paintLayerIdRef.current = layerId;
+
+                  const localX = (x - layer.transform.x) * (img.naturalWidth / layer.transform.width);
+                  const localY = (y - layer.transform.y) * (img.naturalHeight / layer.transform.height);
+
+                  const tool = new BrushTool({
+                    size: brushSettings.size * (img.naturalWidth / layer.transform.width),
+                    hardness: brushSettings.hardness,
+                    opacity: brushSettings.opacity,
+                    flow: brushSettings.flow,
+                    color: brushSettings.color,
+                    blendMode: brushSettings.blendMode,
+                  });
+                  tool.setCanvas(tempCanvas);
+                  tool.startStroke(localX, localY, 1);
+                  brushToolRef.current = tool;
+
+                  if (!selectedLayerIds.includes(layerId)) {
+                    selectLayer(layerId);
+                  }
+                  startDrag('paint', e.clientX, e.clientY);
+                }
+              }
+            }
+          }
+        } else {
+          startDrawing({ x, y });
+        }
+        return;
+      }
+
+      if (activeTool === 'eraser') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId && project) {
+          const layer = project.layers[layerId];
+          if (layer?.type === 'image') {
+            const imageLayer = layer as ImageLayer;
+            const asset = project.assets[imageLayer.sourceId];
+            const src = asset?.blobUrl ?? asset?.dataUrl;
+            if (src) {
+              const img = getCachedImage(src);
+              if (img && img.complete && img.naturalWidth > 0) {
+                const tempCanvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0);
+                  paintCanvasRef.current = tempCanvas;
+                  paintLayerIdRef.current = layerId;
+
+                  const localX = (x - layer.transform.x) * (img.naturalWidth / layer.transform.width);
+                  const localY = (y - layer.transform.y) * (img.naturalHeight / layer.transform.height);
+
+                  const tool = new EraserTool({
+                    size: eraserSettings.size * (img.naturalWidth / layer.transform.width),
+                    hardness: eraserSettings.hardness,
+                    opacity: eraserSettings.opacity,
+                    flow: eraserSettings.flow,
+                    mode: eraserSettings.mode,
+                    spacing: 25,
+                    sizeDynamics: { ...DEFAULT_BRUSH_DYNAMICS },
+                    opacityDynamics: { ...DEFAULT_BRUSH_DYNAMICS },
+                    flowDynamics: { ...DEFAULT_BRUSH_DYNAMICS },
+                  });
+                  tool.startErase(localX, localY, 1);
+                  eraserToolRef.current = tool;
+
+                  if (!selectedLayerIds.includes(layerId)) {
+                    selectLayer(layerId);
+                  }
+                  startDrag('paint', e.clientX, e.clientY);
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      if (activeTool === 'gradient') {
+        setGradientDrag({
+          startX: x,
+          startY: y,
+          endX: x,
+          endY: y,
+          layerId: selectedLayerIds[0] ?? '',
+        });
+        startDrag('paint', e.clientX, e.clientY);
+        return;
+      }
+
+      if (activeTool === 'paint-bucket') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId && project) {
+          const layer = project.layers[layerId];
+          if (layer?.type === 'image') {
+            const imageLayer = layer as ImageLayer;
+            const asset = project.assets[imageLayer.sourceId];
+            const src = asset?.blobUrl ?? asset?.dataUrl;
+            if (src) {
+              const img = getCachedImage(src);
+              if (img && img.complete && img.naturalWidth > 0) {
+                const localX = x - layer.transform.x;
+                const localY = y - layer.transform.y;
+                const scaleX = img.naturalWidth / layer.transform.width;
+                const scaleY = img.naturalHeight / layer.transform.height;
+                const imgX = Math.floor(localX * scaleX);
+                const imgY = Math.floor(localY * scaleY);
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = img.naturalWidth;
+                tempCanvas.height = img.naturalHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0);
+                  const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+                  const fillOptions: FloodFillOptions = {
+                    tolerance: paintBucketSettings.tolerance,
+                    contiguous: paintBucketSettings.contiguous,
+                    antiAlias: paintBucketSettings.antiAlias,
+                    opacity: paintBucketSettings.opacity,
+                  };
+
+                  const filledData = floodFill(imageData, imgX, imgY, paintBucketSettings.color, fillOptions);
+                  tempCtx.putImageData(filledData, 0, 0);
+
+                  const oldBlobUrl = asset?.blobUrl;
+                  tempCanvas.toBlob((blob) => {
+                    if (blob) {
+                      if (oldBlobUrl?.startsWith('blob:')) {
+                        URL.revokeObjectURL(oldBlobUrl);
+                      }
+                      const newBlobUrl = URL.createObjectURL(blob);
+                      const newAssetId = `asset-${Date.now()}`;
+                      useProjectStore.getState().addAsset({
+                        id: newAssetId,
+                        name: `filled-${imageLayer.name || 'image'}`,
+                        type: 'image',
+                        mimeType: 'image/png',
+                        size: blob.size,
+                        width: tempCanvas.width,
+                        height: tempCanvas.height,
+                        thumbnailUrl: newBlobUrl,
+                        blobUrl: newBlobUrl,
+                      });
+                      useProjectStore.getState().updateLayer(layerId, { sourceId: newAssetId });
+                      forceRender();
+                    }
+                  }, 'image/png');
+                }
+              }
+            }
+          } else if (layer?.type === 'shape') {
+            updateLayer(layerId, {
+              shapeStyle: {
+                ...(layer as ShapeLayer).shapeStyle,
+                fill: paintBucketSettings.color,
+                fillOpacity: paintBucketSettings.opacity,
+              },
+            } as Partial<ShapeLayer>);
+          }
+        }
+        return;
+      }
+
+      if (activeTool === 'smudge' || activeTool === 'blur' || activeTool === 'sharpen') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId && project) {
+          const layer = project.layers[layerId];
+          if (layer?.type === 'image') {
+            const imageLayer = layer as ImageLayer;
+            const asset = project.assets[imageLayer.sourceId];
+            const src = asset?.blobUrl ?? asset?.dataUrl;
+            if (src) {
+              const img = getCachedImage(src);
+              if (img && img.complete && img.naturalWidth > 0) {
+                const tempCanvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0);
+                  paintCanvasRef.current = tempCanvas;
+                  paintLayerIdRef.current = layerId;
+
+                  const localX = (x - layer.transform.x) * (img.naturalWidth / layer.transform.width);
+                  const localY = (y - layer.transform.y) * (img.naturalHeight / layer.transform.height);
+
+                  if (activeTool === 'smudge') {
+                    const tool = new SmudgeTool({
+                      size: smudgeSettings.size * (img.naturalWidth / layer.transform.width),
+                      hardness: 50,
+                      strength: smudgeSettings.strength,
+                      fingerPainting: smudgeSettings.fingerPainting,
+                      sampleAllLayers: smudgeSettings.sampleAllLayers,
+                      fingerColor: brushSettings.color,
+                    });
+                    tool.setCanvas(tempCanvas);
+                    tool.startStroke(localX, localY, 1);
+                    smudgeToolRef.current = tool;
+                    blurSharpenToolRef.current = null;
+                  } else {
+                    const tool = new BlurSharpenTool({
+                      size: blurSharpenSettings.size * (img.naturalWidth / layer.transform.width),
+                      hardness: 50,
+                      strength: blurSharpenSettings.strength,
+                      mode: activeTool === 'blur' ? 'blur' : 'sharpen',
+                      sampleAllLayers: blurSharpenSettings.sampleAllLayers,
+                    });
+                    tool.setCanvas(tempCanvas);
+                    tool.startStroke(localX, localY, 1);
+                    blurSharpenToolRef.current = tool;
+                    smudgeToolRef.current = null;
+                  }
+
+                  if (!selectedLayerIds.includes(layerId)) {
+                    selectLayer(layerId);
+                  }
+                  startDrag('paint', e.clientX, e.clientY);
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      if (activeTool === 'dodge' || activeTool === 'burn' || activeTool === 'sponge' || activeTool === 'spot-healing') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId && project) {
+          const layer = project.layers[layerId];
+          if (layer?.type === 'image') {
+            const imageLayer = layer as ImageLayer;
+            const asset = project.assets[imageLayer.sourceId];
+            const src = asset?.blobUrl ?? asset?.dataUrl;
+            if (src) {
+              const img = getCachedImage(src);
+              if (img && img.complete && img.naturalWidth > 0) {
+                const tempCanvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0);
+                  paintCanvasRef.current = tempCanvas;
+                  paintLayerIdRef.current = layerId;
+
+                  const localX = (x - layer.transform.x) * (img.naturalWidth / layer.transform.width);
+                  const localY = (y - layer.transform.y) * (img.naturalHeight / layer.transform.height);
+
+                  if (activeTool === 'dodge' || activeTool === 'burn') {
+                    const tool = new DodgeBurnTool({
+                      size: dodgeBurnSettings.size * (img.naturalWidth / layer.transform.width),
+                      type: activeTool,
+                      range: dodgeBurnSettings.range,
+                      exposure: dodgeBurnSettings.exposure,
+                    });
+                    tool.setCanvas(tempCanvas);
+                    tool.startStroke(localX, localY, 1);
+                    tool.apply(tempCtx, localX, localY, 1);
+                    dodgeBurnToolRef.current = tool;
+                  } else if (activeTool === 'sponge') {
+                    const tool = new SpongeTool({
+                      size: spongeSettings.size * (img.naturalWidth / layer.transform.width),
+                      mode: spongeSettings.mode,
+                      flow: spongeSettings.flow,
+                    });
+                    tool.setCanvas(tempCanvas);
+                    tool.startStroke(localX, localY, 1);
+                    tool.apply(tempCtx, localX, localY, 1);
+                    spongeToolRef.current = tool;
+                  } else if (activeTool === 'spot-healing') {
+                    const tool = new SpotHealingTool({
+                      size: spotHealingSettings.size * (img.naturalWidth / layer.transform.width),
+                      type: spotHealingSettings.type,
+                      sampleAllLayers: spotHealingSettings.sampleAllLayers,
+                    });
+                    tool.setCanvas(tempCanvas);
+                    tool.heal(tempCtx, localX, localY);
+                    spotHealingToolRef.current = tool;
+                  }
+
+                  if (!selectedLayerIds.includes(layerId)) {
+                    selectLayer(layerId);
+                  }
+                  startDrag('paint', e.clientX, e.clientY);
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      if (activeTool === 'clone-stamp' || activeTool === 'healing-brush') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId && project) {
+          const layer = project.layers[layerId];
+          if (layer?.type === 'image') {
+            const imageLayer = layer as ImageLayer;
+            const asset = project.assets[imageLayer.sourceId];
+            const src = asset?.blobUrl ?? asset?.dataUrl;
+            if (src) {
+              const img = getCachedImage(src);
+              if (img && img.complete && img.naturalWidth > 0) {
+                const tempCanvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0);
+                  paintCanvasRef.current = tempCanvas;
+                  paintLayerIdRef.current = layerId;
+
+                  const localX = (x - layer.transform.x) * (img.naturalWidth / layer.transform.width);
+                  const localY = (y - layer.transform.y) * (img.naturalHeight / layer.transform.height);
+
+                  if (e.altKey) {
+                    if (activeTool === 'clone-stamp') {
+                      if (!cloneStampToolRef.current) {
+                        cloneStampToolRef.current = new CloneStampTool({
+                          size: cloneStampSettings.size * (img.naturalWidth / layer.transform.width),
+                          hardness: cloneStampSettings.hardness,
+                          opacity: cloneStampSettings.opacity,
+                          flow: cloneStampSettings.flow,
+                          aligned: cloneStampSettings.aligned,
+                        });
+                      }
+                      cloneStampToolRef.current.setSourceCanvas(tempCanvas);
+                      cloneStampToolRef.current.setSource(localX, localY, layerId);
+                    } else {
+                      if (!healingBrushToolRef.current) {
+                        healingBrushToolRef.current = new HealingBrushTool({
+                          size: healingBrushSettings.size * (img.naturalWidth / layer.transform.width),
+                          hardness: healingBrushSettings.hardness,
+                          aligned: healingBrushSettings.aligned,
+                        });
+                      }
+                      healingBrushToolRef.current.setCanvases(tempCanvas, tempCanvas);
+                      healingBrushToolRef.current.setSource(localX, localY, layerId);
+                    }
+                    return;
+                  }
+
+                  if (activeTool === 'clone-stamp' && cloneStampToolRef.current?.hasSource()) {
+                    cloneStampToolRef.current.updateSettings({
+                      size: cloneStampSettings.size * (img.naturalWidth / layer.transform.width),
+                      hardness: cloneStampSettings.hardness,
+                      opacity: cloneStampSettings.opacity,
+                      flow: cloneStampSettings.flow,
+                      aligned: cloneStampSettings.aligned,
+                    });
+                    cloneStampToolRef.current.setSourceCanvas(tempCanvas);
+                    cloneStampToolRef.current.startClone(localX, localY);
+                    cloneStampToolRef.current.clone(tempCtx, localX, localY);
+                  } else if (activeTool === 'healing-brush' && healingBrushToolRef.current?.hasSource()) {
+                    healingBrushToolRef.current.updateSettings({
+                      size: healingBrushSettings.size * (img.naturalWidth / layer.transform.width),
+                      hardness: healingBrushSettings.hardness,
+                      aligned: healingBrushSettings.aligned,
+                    });
+                    healingBrushToolRef.current.setCanvases(tempCanvas, tempCanvas);
+                    healingBrushToolRef.current.startHeal(localX, localY);
+                    healingBrushToolRef.current.heal(tempCtx, localX, localY);
+                  } else {
+                    return;
+                  }
+
+                  if (!selectedLayerIds.includes(layerId)) {
+                    selectLayer(layerId);
+                  }
+                  startDrag('paint', e.clientX, e.clientY);
+                }
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      if (activeTool === 'zoom') {
+        if (e.shiftKey || e.altKey) {
+          setZoom(Math.max(0.1, zoom / 1.5));
+        } else {
+          setZoom(Math.min(32, zoom * 1.5));
+        }
+        return;
+      }
+
+      if (activeTool === 'eyedropper') {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (ctx && canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const pixelX = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+          const pixelY = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+          const pixel = ctx.getImageData(pixelX, pixelY, 1, 1).data;
+          const hex = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`;
+          setBrushSettings({ color: hex });
+        }
+        return;
+      }
+
+      if (activeTool === 'crop') {
+        const layerId = findLayerAtPoint(x, y);
+        if (layerId) {
+          const layer = project?.layers[layerId];
+          if (layer) {
+            selectLayer(layerId);
+            startCrop(layerId, {
+              x: 0,
+              y: 0,
+              width: layer.transform.width,
+              height: layer.transform.height,
+            });
+            startMarqueeSelect(x, y);
+            startDrag('crop', e.clientX, e.clientY);
+          }
+        }
+        return;
+      }
+
       if (activeTool === 'select') {
         const handleHit = getHandleAtPoint(canvasX, canvasY);
         if (handleHit) {
@@ -784,7 +1374,7 @@ export function Canvas() {
         }
       }
     },
-    [activeTool, screenToCanvas, findLayerAtPoint, selectLayer, deselectAllLayers, startDrag, selectedLayerIds, startDrawing, startMarqueeSelect, getHandleAtPoint, project, setActiveResizeHandle]
+    [activeTool, screenToCanvas, findLayerAtPoint, selectLayer, deselectAllLayers, startDrag, selectedLayerIds, startDrawing, startMarqueeSelect, getHandleAtPoint, project, setActiveResizeHandle, zoom, setZoom, startCrop, setBrushSettings, eraserSettings]
   );
 
   const handleMouseMove = useCallback(
@@ -798,7 +1388,166 @@ export function Canvas() {
         return;
       }
 
-      if (!isDragging && canvas && activeTool === 'select' && selectedLayerIds.length === 1) {
+      if (gradientDrag && activeTool === 'gradient') {
+        const { x, y } = screenToCanvas(e.clientX, e.clientY);
+        setGradientDrag({ ...gradientDrag, endX: x, endY: y });
+        scheduleRender();
+        return;
+      }
+
+      if (isDragging && dragMode === 'paint' && paintLayerIdRef.current && paintCanvasRef.current) {
+        if (activeTool === 'smudge' && smudgeToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+            smudgeToolRef.current.continueStroke(localX, localY, 1);
+          }
+          return;
+        }
+
+        if (activeTool === 'eraser' && eraserToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+            eraserToolRef.current.continueErase(localX, localY, 1);
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              const stroke = eraserToolRef.current.endErase();
+              if (stroke) {
+                eraserToolRef.current.applyErase(ctx, stroke);
+                eraserToolRef.current.startErase(localX, localY, 1);
+              }
+            }
+          }
+          scheduleRender();
+          return;
+        }
+
+        if (activeTool === 'brush' && brushToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              brushToolRef.current.apply(ctx, localX, localY, 1);
+            }
+          }
+          scheduleRender();
+          return;
+        }
+
+        if ((activeTool === 'blur' || activeTool === 'sharpen') && blurSharpenToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+            blurSharpenToolRef.current.continueStroke(localX, localY, 1);
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              blurSharpenToolRef.current.apply(ctx, localX, localY, 1);
+            }
+          }
+          return;
+        }
+
+        if ((activeTool === 'dodge' || activeTool === 'burn') && dodgeBurnToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+            dodgeBurnToolRef.current.continueStroke(localX, localY, 1);
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              dodgeBurnToolRef.current.apply(ctx, localX, localY, 1);
+            }
+          }
+          return;
+        }
+
+        if (activeTool === 'sponge' && spongeToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+            spongeToolRef.current.continueStroke(localX, localY, 1);
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              spongeToolRef.current.apply(ctx, localX, localY, 1);
+            }
+          }
+          return;
+        }
+
+        if (activeTool === 'spot-healing' && spotHealingToolRef.current) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              spotHealingToolRef.current.heal(ctx, localX, localY);
+            }
+          }
+          return;
+        }
+
+        if (activeTool === 'clone-stamp' && cloneStampToolRef.current?.hasSource()) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              cloneStampToolRef.current.clone(ctx, localX, localY);
+            }
+          }
+          return;
+        }
+
+        if (activeTool === 'healing-brush' && healingBrushToolRef.current?.hasSource()) {
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          const layer = project?.layers[paintLayerIdRef.current];
+          if (layer && paintCanvasRef.current) {
+            const scale = paintCanvasRef.current.width / layer.transform.width;
+            const localX = (x - layer.transform.x) * scale;
+            const localY = (y - layer.transform.y) * scale;
+
+            const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              healingBrushToolRef.current.heal(ctx, localX, localY);
+            }
+          }
+          return;
+        }
+      }
+
+      if (!isDragging && canvas && (activeTool === 'select' || activeTool === 'free-transform') && selectedLayerIds.length === 1) {
         const rect = canvas.getBoundingClientRect();
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
@@ -811,9 +1560,34 @@ export function Canvas() {
 
       updateDrag(e.clientX, e.clientY);
 
-      if (dragMode === 'marquee') {
+      if (dragMode === 'marquee' || dragMode === 'crop') {
         const { x, y } = screenToCanvas(e.clientX, e.clientY);
         updateMarqueeSelect(x, y);
+        if (dragMode === 'crop' && crop.layerId && marqueeRect) {
+          const layer = project?.layers[crop.layerId];
+          if (layer) {
+            const relX = marqueeRect.x - layer.transform.x;
+            const relY = marqueeRect.y - layer.transform.y;
+            let width = Math.min(marqueeRect.width, layer.transform.width - relX);
+            let height = Math.min(marqueeRect.height, layer.transform.height - relY);
+
+            if (crop.lockAspect && crop.initialAspectRatio) {
+              const currentAspect = width / height;
+              if (currentAspect > crop.initialAspectRatio) {
+                width = height * crop.initialAspectRatio;
+              } else {
+                height = width / crop.initialAspectRatio;
+              }
+            }
+
+            updateCropRect({
+              x: Math.max(0, relX),
+              y: Math.max(0, relY),
+              width,
+              height,
+            });
+          }
+        }
         scheduleRender();
         return;
       }
@@ -1009,7 +1783,7 @@ export function Canvas() {
         }
       }
     },
-    [isDragging, dragMode, dragCurrentX, dragCurrentY, dragStartX, dragStartY, panX, panY, setPan, zoom, selectedLayerIds, project, updateLayerTransform, updateDrag, artboard, guides, snapToObjects, snapToGuides, snapToGrid, gridSize, setSmartGuides, drawing.isDrawing, screenToCanvas, addDrawingPoint, scheduleRender, updateMarqueeSelect, activeResizeHandle, activeTool, getHandleAtPoint]
+    [isDragging, dragMode, dragCurrentX, dragCurrentY, dragStartX, dragStartY, panX, panY, setPan, zoom, selectedLayerIds, project, updateLayerTransform, updateDrag, artboard, guides, snapToObjects, snapToGuides, snapToGrid, gridSize, setSmartGuides, drawing.isDrawing, screenToCanvas, addDrawingPoint, scheduleRender, updateMarqueeSelect, activeResizeHandle, activeTool, getHandleAtPoint, updateCropRect, crop, marqueeRect, gradientDrag]
   );
 
   const findLayersInRect = useCallback(
@@ -1047,20 +1821,195 @@ export function Canvas() {
     if (drawing.isDrawing) {
       const path = finishDrawing();
       if (path && path.length > 1) {
-        addPathLayer(path, penSettings.color, penSettings.width);
+        if (activeTool === 'brush') {
+          addPathLayer(path, brushSettings.color, brushSettings.size);
+        } else {
+          addPathLayer(path, penSettings.color, penSettings.width);
+        }
       }
       scheduleRender();
+      return;
+    }
+
+    if (gradientDrag && activeTool === 'gradient') {
+      const dx = gradientDrag.endX - gradientDrag.startX;
+      const dy = gradientDrag.endY - gradientDrag.startY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance > 5 && artboard) {
+        const minX = Math.min(gradientDrag.startX, gradientDrag.endX);
+        const minY = Math.min(gradientDrag.startY, gradientDrag.endY);
+        const maxX = Math.max(gradientDrag.startX, gradientDrag.endX);
+        const maxY = Math.max(gradientDrag.startY, gradientDrag.endY);
+
+        const width = Math.max(maxX - minX, 50);
+        const height = Math.max(maxY - minY, 50);
+
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+        const colors = gradientSettings.reverse
+          ? [...gradientSettings.colors].reverse()
+          : gradientSettings.colors;
+
+        const stops = colors.map((color, i) => ({
+          offset: i / Math.max(colors.length - 1, 1),
+          color,
+        }));
+
+        addShapeLayer('rectangle', {
+          x: minX,
+          y: minY,
+          width,
+          height,
+        });
+
+        const newLayerId = Object.keys(project?.layers ?? {}).find(
+          (id) => !selectedLayerIds.includes(id) && project?.layers[id]?.name === 'Rectangle'
+        );
+
+        if (newLayerId) {
+          updateLayer(newLayerId, {
+            name: 'Gradient Fill',
+            shapeStyle: {
+              fill: null,
+              stroke: null,
+              strokeWidth: 0,
+              fillOpacity: gradientSettings.opacity,
+              strokeOpacity: 1,
+              cornerRadius: 0,
+              fillType: 'gradient',
+              gradient: {
+                type: gradientSettings.type,
+                angle: gradientSettings.type === 'linear' ? angle : 0,
+                stops,
+              },
+            },
+          } as Partial<ShapeLayer>);
+        }
+      }
+
+      setGradientDrag(null);
+      endDrag();
+      scheduleRender();
+      return;
+    }
+
+    if (dragMode === 'paint' && paintLayerIdRef.current && paintCanvasRef.current) {
+      const hasActiveTool =
+        (activeTool === 'smudge' && smudgeToolRef.current) ||
+        ((activeTool === 'blur' || activeTool === 'sharpen') && blurSharpenToolRef.current) ||
+        ((activeTool === 'dodge' || activeTool === 'burn') && dodgeBurnToolRef.current) ||
+        (activeTool === 'sponge' && spongeToolRef.current) ||
+        (activeTool === 'spot-healing' && spotHealingToolRef.current) ||
+        (activeTool === 'clone-stamp' && cloneStampToolRef.current) ||
+        (activeTool === 'healing-brush' && healingBrushToolRef.current) ||
+        (activeTool === 'eraser' && eraserToolRef.current) ||
+        (activeTool === 'brush' && brushToolRef.current);
+
+      if (hasActiveTool) {
+        if (smudgeToolRef.current) {
+          smudgeToolRef.current.endStroke();
+        }
+        if (blurSharpenToolRef.current) {
+          blurSharpenToolRef.current.endStroke();
+        }
+        if (dodgeBurnToolRef.current) {
+          dodgeBurnToolRef.current.endStroke();
+        }
+        if (spongeToolRef.current) {
+          spongeToolRef.current.endStroke();
+        }
+        if (cloneStampToolRef.current) {
+          cloneStampToolRef.current.endClone();
+        }
+        if (healingBrushToolRef.current) {
+          healingBrushToolRef.current.endHeal();
+        }
+        if (eraserToolRef.current && paintCanvasRef.current) {
+          const ctx = paintCanvasRef.current.getContext('2d', { willReadFrequently: true });
+          if (ctx) {
+            const stroke = eraserToolRef.current.endErase();
+            if (stroke) {
+              eraserToolRef.current.applyErase(ctx, stroke);
+            }
+          }
+        }
+        if (brushToolRef.current) {
+          brushToolRef.current.endStroke();
+        }
+
+        const tempCanvas = paintCanvasRef.current;
+        const layerId = paintLayerIdRef.current;
+
+        const currentLayer = project?.layers[layerId] as ImageLayer | undefined;
+        const oldSourceId = currentLayer?.sourceId;
+        const oldAsset = oldSourceId ? project?.assets[oldSourceId] : undefined;
+        const oldBlobUrl = oldAsset?.blobUrl;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = tempCanvas.width;
+        canvas.height = tempCanvas.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(tempCanvas, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              if (oldBlobUrl?.startsWith('blob:')) {
+                URL.revokeObjectURL(oldBlobUrl);
+              }
+              const newBlobUrl = URL.createObjectURL(blob);
+              const newAssetId = `asset-${Date.now()}`;
+              useProjectStore.getState().addAsset({
+                id: newAssetId,
+                name: `${activeTool}-edited`,
+                type: 'image',
+                mimeType: 'image/png',
+                size: blob.size,
+                width: canvas.width,
+                height: canvas.height,
+                thumbnailUrl: newBlobUrl,
+                blobUrl: newBlobUrl,
+              });
+              useProjectStore.getState().updateLayer(layerId, { sourceId: newAssetId });
+              forceRender();
+            }
+          }, 'image/png');
+        }
+
+        smudgeToolRef.current = null;
+        blurSharpenToolRef.current = null;
+        dodgeBurnToolRef.current = null;
+        spongeToolRef.current = null;
+        spotHealingToolRef.current = null;
+        eraserToolRef.current = null;
+        brushToolRef.current = null;
+        paintCanvasRef.current = null;
+        paintLayerIdRef.current = null;
+      }
+
+      endDrag();
       return;
     }
 
     if (dragMode === 'marquee') {
       const rect = endMarqueeSelect();
       if (rect && rect.width > 5 && rect.height > 5) {
-        const layerIds = findLayersInRect(rect);
-        if (layerIds.length > 0) {
-          selectLayers(layerIds);
+        if (activeTool === 'marquee-rect' || activeTool === 'marquee-ellipse') {
+          // Keep selection visible for marquee tools - don't select layers
+        } else {
+          const layerIds = findLayersInRect(rect);
+          if (layerIds.length > 0) {
+            selectLayers(layerIds);
+          }
         }
       }
+      endDrag();
+      scheduleRender();
+      return;
+    }
+
+    if (dragMode === 'crop') {
+      endMarqueeSelect();
       endDrag();
       scheduleRender();
       return;
@@ -1070,7 +2019,7 @@ export function Canvas() {
     setActiveResizeHandle(null);
     endDrag();
     clearSmartGuides();
-  }, [endDrag, clearSmartGuides, drawing.isDrawing, finishDrawing, addPathLayer, penSettings, scheduleRender, dragMode, endMarqueeSelect, findLayersInRect, selectLayers, setActiveResizeHandle]);
+  }, [endDrag, clearSmartGuides, drawing.isDrawing, finishDrawing, addPathLayer, penSettings, brushSettings, scheduleRender, dragMode, endMarqueeSelect, findLayersInRect, selectLayers, setActiveResizeHandle, activeTool, gradientDrag, gradientSettings, artboard, addShapeLayer, updateLayer, project, selectedLayerIds]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -1254,11 +2203,12 @@ export function Canvas() {
     [zoom, panX, panY, setPan]
   );
 
-  const effectiveCursor = activeTool === 'hand'
-    ? 'grab'
-    : activeTool === 'select'
-      ? (cursorStyle !== 'default' ? cursorStyle : 'default')
-      : 'crosshair';
+  const effectiveCursor = (() => {
+    if ((activeTool === 'select' || activeTool === 'free-transform') && cursorStyle !== 'default') {
+      return cursorStyle;
+    }
+    return getToolCursor(activeTool, isDragging, dragMode);
+  })();
 
   return (
     <div
@@ -1286,6 +2236,7 @@ export function Canvas() {
           left: showRulers ? RULER_SIZE : 0,
           width: showRulers ? `calc(100% - ${RULER_SIZE}px)` : '100%',
           height: showRulers ? `calc(100% - ${RULER_SIZE}px)` : '100%',
+          cursor: effectiveCursor,
         }}
       />
 
@@ -1658,6 +2609,21 @@ function applyRadialBlur(
   ctx.globalAlpha = 1;
 }
 
+function drawImageWithCrop(
+  ctx: RenderContext,
+  img: HTMLImageElement,
+  layerWidth: number,
+  layerHeight: number,
+  cropRect: { x: number; y: number; width: number; height: number } | null
+) {
+  if (!cropRect) {
+    ctx.drawImage(img, 0, 0, layerWidth, layerHeight);
+    return;
+  }
+
+  ctx.drawImage(img, cropRect.x, cropRect.y, cropRect.width, cropRect.height, 0, 0, layerWidth, layerHeight);
+}
+
 function renderImageLayerInternal(
   ctx: RenderContext,
   layer: ImageLayer,
@@ -1691,6 +2657,7 @@ function renderImageLayerInternal(
 
   const flipH = layer.flipHorizontal ?? false;
   const flipV = layer.flipVertical ?? false;
+  const { cropRect } = layer;
 
   const adjustments: LayerAdjustments = {
     levels: layer.levels,
@@ -1785,7 +2752,7 @@ function renderImageLayerInternal(
       } else if (filters.blur > 0 && filters.blurType === 'radial') {
         applyRadialBlur(tempCtx, img, width, height, filters.blur);
       } else {
-        tempCtx.drawImage(img, 0, 0, width, height);
+        drawImageWithCrop(tempCtx, img, width, height, cropRect);
       }
 
       tempCtx.filter = 'none';
@@ -1806,7 +2773,7 @@ function renderImageLayerInternal(
     } else if (filters.blur > 0 && filters.blurType === 'radial') {
       applyRadialBlur(ctx, img, layer.transform.width, layer.transform.height, filters.blur);
     } else {
-      ctx.drawImage(img, 0, 0, layer.transform.width, layer.transform.height);
+      drawImageWithCrop(ctx, img, layer.transform.width, layer.transform.height, cropRect);
     }
 
     ctx.filter = 'none';

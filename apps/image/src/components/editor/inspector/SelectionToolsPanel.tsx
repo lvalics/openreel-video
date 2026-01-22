@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useUIStore } from '../../../stores/ui-store';
 import { useSelectionStore } from '../../../stores/selection-store';
 import { useProjectStore } from '../../../stores/project-store';
@@ -14,6 +15,8 @@ import {
   RotateCcw,
   Download,
   Upload,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 
 interface SliderProps {
@@ -71,12 +74,18 @@ export function SelectionToolsPanel() {
 
   const {
     active: selection,
+    saved: savedSelections,
     clearSelection,
     invertSelection,
     featherSelection,
     expandSelection,
     contractSelection,
+    saveSelection,
+    loadSelection,
+    deleteSelection,
   } = useSelectionStore();
+
+  const [showLoadMenu, setShowLoadMenu] = useState(false);
 
   const { project } = useProjectStore();
   const artboard = project?.artboards?.find((a) => a.id === project.activeArtboardId);
@@ -256,21 +265,56 @@ export function SelectionToolsPanel() {
 
             <div className="flex gap-1.5">
               <button
-                onClick={() => {}}
+                onClick={() => saveSelection(`Selection ${savedSelections.length + 1}`)}
                 className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] rounded bg-secondary hover:bg-secondary/80 transition-colors"
                 title="Save Selection"
               >
                 <Download size={10} />
                 Save
               </button>
-              <button
-                onClick={() => {}}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] rounded bg-secondary hover:bg-secondary/80 transition-colors"
-                title="Load Selection"
-              >
-                <Upload size={10} />
-                Load
-              </button>
+              <div className="flex-1 relative">
+                <button
+                  onClick={() => setShowLoadMenu(!showLoadMenu)}
+                  disabled={savedSelections.length === 0}
+                  className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] rounded bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Load Selection"
+                >
+                  <Upload size={10} />
+                  Load
+                  {savedSelections.length > 0 && (
+                    <ChevronDown size={8} className={`transition-transform ${showLoadMenu ? 'rotate-180' : ''}`} />
+                  )}
+                </button>
+                {showLoadMenu && savedSelections.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-10 max-h-32 overflow-y-auto">
+                    {savedSelections.map((sel, idx) => (
+                      <div
+                        key={sel.id}
+                        className="flex items-center justify-between px-2 py-1.5 hover:bg-secondary/50 group"
+                      >
+                        <button
+                          onClick={() => {
+                            loadSelection(sel.id);
+                            setShowLoadMenu(false);
+                          }}
+                          className="flex-1 text-left text-[10px] text-foreground truncate"
+                        >
+                          Selection {idx + 1}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSelection(sel.id);
+                          }}
+                          className="p-0.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -1,8 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import { useUIStore, CropAspectRatio } from '../../../stores/ui-store';
 import type { ImageLayer } from '../../../types/project';
 import { Crop, Check, X, RotateCcw, Lock, Unlock } from 'lucide-react';
+
+const imageCache = new Map<string, HTMLImageElement>();
+function getCachedImage(src: string): HTMLImageElement | null {
+  if (!src) return null;
+  if (imageCache.has(src)) return imageCache.get(src)!;
+  const img = new Image();
+  img.src = src;
+  imageCache.set(src, img);
+  return img;
+}
 
 interface Props {
   layer: ImageLayer;
@@ -21,11 +31,26 @@ const ASPECT_RATIOS: { value: CropAspectRatio; label: string; ratio?: number }[]
 ];
 
 export function CropSection({ layer }: Props) {
-  const { updateLayer } = useProjectStore();
-  const { crop, startCrop, cancelCrop, applyCrop, setCropAspectRatio, updateCropRect } = useUIStore();
-  const [lockAspect, setLockAspect] = useState(false);
+  const { updateLayer, project } = useProjectStore();
+  const { crop, startCrop, cancelCrop, applyCrop, setCropAspectRatio, updateCropRect, setCropLockAspect } = useUIStore();
+
+  const lockAspect = crop.lockAspect;
+  const setLockAspect = setCropLockAspect;
 
   const isCropping = crop.isActive && crop.layerId === layer.id;
+
+  const imageDimensions = useMemo(() => {
+    if (!project) return null;
+    const asset = project.assets[layer.sourceId];
+    if (!asset) return null;
+    const src = asset.blobUrl ?? asset.dataUrl;
+    if (!src) return null;
+    const img = getCachedImage(src);
+    if (img && img.complete && img.naturalWidth > 0) {
+      return { width: img.naturalWidth, height: img.naturalHeight };
+    }
+    return asset.width && asset.height ? { width: asset.width, height: asset.height } : null;
+  }, [project, layer.sourceId]);
 
   const handleStartCrop = useCallback(() => {
     const initialRect = layer.cropRect ?? {
@@ -39,12 +64,44 @@ export function CropSection({ layer }: Props) {
 
   const handleApplyCrop = useCallback(() => {
     const result = applyCrop();
-    if (result) {
+    if (result && result.cropRect) {
+      const existingCropRect = layer.cropRect;
+      let finalCropRect: { x: number; y: number; width: number; height: number };
+
+      if (existingCropRect) {
+        const scaleX = existingCropRect.width / layer.transform.width;
+        const scaleY = existingCropRect.height / layer.transform.height;
+        finalCropRect = {
+          x: existingCropRect.x + result.cropRect.x * scaleX,
+          y: existingCropRect.y + result.cropRect.y * scaleY,
+          width: result.cropRect.width * scaleX,
+          height: result.cropRect.height * scaleY,
+        };
+      } else if (imageDimensions) {
+        const scaleX = imageDimensions.width / layer.transform.width;
+        const scaleY = imageDimensions.height / layer.transform.height;
+        finalCropRect = {
+          x: result.cropRect.x * scaleX,
+          y: result.cropRect.y * scaleY,
+          width: result.cropRect.width * scaleX,
+          height: result.cropRect.height * scaleY,
+        };
+      } else {
+        finalCropRect = result.cropRect;
+      }
+
       updateLayer<ImageLayer>(result.layerId, {
-        cropRect: result.cropRect,
+        cropRect: finalCropRect,
+        transform: {
+          ...layer.transform,
+          x: layer.transform.x + result.cropRect.x,
+          y: layer.transform.y + result.cropRect.y,
+          width: result.cropRect.width,
+          height: result.cropRect.height,
+        },
       });
     }
-  }, [applyCrop, updateLayer]);
+  }, [applyCrop, updateLayer, layer, imageDimensions]);
 
   const handleResetCrop = useCallback(() => {
     if (isCropping) {

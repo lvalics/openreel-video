@@ -18,7 +18,21 @@ export type Tool =
   | 'magic-wand'
   | 'eraser'
   | 'dodge'
-  | 'burn';
+  | 'burn'
+  | 'brush'
+  | 'clone-stamp'
+  | 'healing-brush'
+  | 'spot-healing'
+  | 'sponge'
+  | 'smudge'
+  | 'blur'
+  | 'sharpen'
+  | 'gradient'
+  | 'paint-bucket'
+  | 'free-transform'
+  | 'warp'
+  | 'perspective'
+  | 'liquify';
 export type Panel = 'layers' | 'assets' | 'templates' | 'text' | 'shapes' | 'uploads' | 'elements';
 
 export type CropAspectRatio = 'free' | '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | 'original';
@@ -28,6 +42,8 @@ export interface CropState {
   layerId: string | null;
   aspectRatio: CropAspectRatio;
   cropRect: { x: number; y: number; width: number; height: number } | null;
+  lockAspect: boolean;
+  initialAspectRatio: number | null;
 }
 
 export interface PenSettings {
@@ -64,6 +80,90 @@ export interface DodgeBurnSettings {
   size: number;
 }
 
+export interface BrushSettings {
+  size: number;
+  hardness: number;
+  opacity: number;
+  flow: number;
+  color: string;
+  blendMode: 'normal' | 'multiply' | 'screen' | 'overlay';
+}
+
+export interface CloneStampSettings {
+  size: number;
+  hardness: number;
+  opacity: number;
+  flow: number;
+  aligned: boolean;
+  sampleAllLayers: boolean;
+  sourcePoint: { x: number; y: number } | null;
+}
+
+export interface HealingBrushSettings {
+  size: number;
+  hardness: number;
+  mode: 'normal' | 'replace' | 'multiply' | 'screen';
+  sourcePoint: { x: number; y: number } | null;
+  aligned: boolean;
+}
+
+export interface SpotHealingSettings {
+  size: number;
+  type: 'proximity-match' | 'create-texture' | 'content-aware';
+  sampleAllLayers: boolean;
+}
+
+export interface SpongeSettings {
+  size: number;
+  flow: number;
+  mode: 'desaturate' | 'saturate';
+}
+
+export interface SmudgeSettings {
+  size: number;
+  strength: number;
+  fingerPainting: boolean;
+  sampleAllLayers: boolean;
+}
+
+export interface BlurSharpenSettings {
+  size: number;
+  strength: number;
+  mode: 'blur' | 'sharpen';
+  sampleAllLayers: boolean;
+}
+
+export interface GradientSettings {
+  type: 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond';
+  colors: string[];
+  opacity: number;
+  reverse: boolean;
+  dither: boolean;
+}
+
+export interface PaintBucketSettings {
+  color: string;
+  tolerance: number;
+  contiguous: boolean;
+  antiAlias: boolean;
+  opacity: number;
+  fillType: 'foreground' | 'pattern';
+}
+
+export interface TransformSettings {
+  mode: 'free' | 'scale' | 'rotate' | 'skew' | 'distort' | 'perspective' | 'warp';
+  maintainAspectRatio: boolean;
+  interpolation: 'nearest' | 'bilinear' | 'bicubic';
+}
+
+export interface LiquifySettings {
+  brushSize: number;
+  brushDensity: number;
+  brushPressure: number;
+  brushRate: number;
+  tool: 'forward-warp' | 'reconstruct' | 'smooth' | 'twirl-clockwise' | 'twirl-counterclockwise' | 'pucker' | 'bloat' | 'push-left' | 'freeze' | 'thaw';
+}
+
 export interface DrawingState {
   isDrawing: boolean;
   currentPath: { x: number; y: number }[];
@@ -98,6 +198,17 @@ interface UIState {
   selectionToolSettings: SelectionToolSettings;
   magicWandSettings: MagicWandSettings;
   dodgeBurnSettings: DodgeBurnSettings;
+  brushSettings: BrushSettings;
+  cloneStampSettings: CloneStampSettings;
+  healingBrushSettings: HealingBrushSettings;
+  spotHealingSettings: SpotHealingSettings;
+  spongeSettings: SpongeSettings;
+  smudgeSettings: SmudgeSettings;
+  blurSharpenSettings: BlurSharpenSettings;
+  gradientSettings: GradientSettings;
+  paintBucketSettings: PaintBucketSettings;
+  transformSettings: TransformSettings;
+  liquifySettings: LiquifySettings;
 }
 
 interface UIActions {
@@ -126,6 +237,7 @@ interface UIActions {
   startCrop: (layerId: string, initialRect: { x: number; y: number; width: number; height: number }) => void;
   updateCropRect: (rect: { x: number; y: number; width: number; height: number }) => void;
   setCropAspectRatio: (ratio: CropAspectRatio) => void;
+  setCropLockAspect: (locked: boolean) => void;
   cancelCrop: () => void;
   applyCrop: () => { layerId: string; cropRect: { x: number; y: number; width: number; height: number } } | null;
   openExportDialog: () => void;
@@ -142,6 +254,17 @@ interface UIActions {
   setSelectionToolSettings: (settings: Partial<SelectionToolSettings>) => void;
   setMagicWandSettings: (settings: Partial<MagicWandSettings>) => void;
   setDodgeBurnSettings: (settings: Partial<DodgeBurnSettings>) => void;
+  setBrushSettings: (settings: Partial<BrushSettings>) => void;
+  setCloneStampSettings: (settings: Partial<CloneStampSettings>) => void;
+  setHealingBrushSettings: (settings: Partial<HealingBrushSettings>) => void;
+  setSpotHealingSettings: (settings: Partial<SpotHealingSettings>) => void;
+  setSpongeSettings: (settings: Partial<SpongeSettings>) => void;
+  setSmudgeSettings: (settings: Partial<SmudgeSettings>) => void;
+  setBlurSharpenSettings: (settings: Partial<BlurSharpenSettings>) => void;
+  setGradientSettings: (settings: Partial<GradientSettings>) => void;
+  setPaintBucketSettings: (settings: Partial<PaintBucketSettings>) => void;
+  setTransformSettings: (settings: Partial<TransformSettings>) => void;
+  setLiquifySettings: (settings: Partial<LiquifySettings>) => void;
 }
 
 const ZOOM_LEVELS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 8];
@@ -171,6 +294,8 @@ export const useUIStore = create<UIState & UIActions>()(
       layerId: null,
       aspectRatio: 'free',
       cropRect: null,
+      lockAspect: false,
+      initialAspectRatio: null,
     },
     isExportDialogOpen: false,
     showShortcutsPanel: false,
@@ -208,9 +333,94 @@ export const useUIStore = create<UIState & UIActions>()(
       exposure: 50,
       size: 30,
     },
+    brushSettings: {
+      size: 20,
+      hardness: 100,
+      opacity: 1,
+      flow: 1,
+      color: '#000000',
+      blendMode: 'normal',
+    },
+    cloneStampSettings: {
+      size: 30,
+      hardness: 50,
+      opacity: 1,
+      flow: 1,
+      aligned: true,
+      sampleAllLayers: false,
+      sourcePoint: null,
+    },
+    healingBrushSettings: {
+      size: 30,
+      hardness: 50,
+      mode: 'normal',
+      sourcePoint: null,
+      aligned: true,
+    },
+    spotHealingSettings: {
+      size: 30,
+      type: 'content-aware',
+      sampleAllLayers: false,
+    },
+    spongeSettings: {
+      size: 30,
+      flow: 50,
+      mode: 'desaturate',
+    },
+    smudgeSettings: {
+      size: 30,
+      strength: 50,
+      fingerPainting: false,
+      sampleAllLayers: false,
+    },
+    blurSharpenSettings: {
+      size: 30,
+      strength: 50,
+      mode: 'blur',
+      sampleAllLayers: false,
+    },
+    gradientSettings: {
+      type: 'linear',
+      colors: ['#000000', '#ffffff'],
+      opacity: 1,
+      reverse: false,
+      dither: true,
+    },
+    paintBucketSettings: {
+      color: '#000000',
+      tolerance: 32,
+      contiguous: true,
+      antiAlias: true,
+      opacity: 1,
+      fillType: 'foreground',
+    },
+    transformSettings: {
+      mode: 'free',
+      maintainAspectRatio: false,
+      interpolation: 'bicubic',
+    },
+    liquifySettings: {
+      brushSize: 100,
+      brushDensity: 50,
+      brushPressure: 100,
+      brushRate: 80,
+      tool: 'forward-warp',
+    },
 
     setCurrentView: (view) => set({ currentView: view }),
-    setActiveTool: (tool) => set({ activeTool: tool }),
+    setActiveTool: (tool) => {
+      const updates: Partial<UIState> = { activeTool: tool };
+      if (tool === 'blur') {
+        updates.blurSharpenSettings = { ...get().blurSharpenSettings, mode: 'blur' };
+      } else if (tool === 'sharpen') {
+        updates.blurSharpenSettings = { ...get().blurSharpenSettings, mode: 'sharpen' };
+      } else if (tool === 'dodge') {
+        updates.dodgeBurnSettings = { ...get().dodgeBurnSettings, type: 'dodge' };
+      } else if (tool === 'burn') {
+        updates.dodgeBurnSettings = { ...get().dodgeBurnSettings, type: 'burn' };
+      }
+      set(updates);
+    },
     setActivePanel: (panel) => set({ activePanel: panel }),
     togglePanelCollapsed: () => set((s) => ({ isPanelCollapsed: !s.isPanelCollapsed })),
     toggleInspectorCollapsed: () => set((s) => ({ isInspectorCollapsed: !s.isInspectorCollapsed })),
@@ -262,6 +472,8 @@ export const useUIStore = create<UIState & UIActions>()(
           layerId,
           aspectRatio: 'free',
           cropRect: initialRect,
+          lockAspect: false,
+          initialAspectRatio: initialRect.width / initialRect.height,
         },
         activeTool: 'crop',
       }),
@@ -276,6 +488,17 @@ export const useUIStore = create<UIState & UIActions>()(
         crop: { ...s.crop, aspectRatio: ratio },
       })),
 
+    setCropLockAspect: (locked) =>
+      set((s) => ({
+        crop: {
+          ...s.crop,
+          lockAspect: locked,
+          initialAspectRatio: locked && s.crop.cropRect
+            ? s.crop.cropRect.width / s.crop.cropRect.height
+            : s.crop.initialAspectRatio,
+        },
+      })),
+
     cancelCrop: () =>
       set({
         crop: {
@@ -283,6 +506,8 @@ export const useUIStore = create<UIState & UIActions>()(
           layerId: null,
           aspectRatio: 'free',
           cropRect: null,
+          lockAspect: false,
+          initialAspectRatio: null,
         },
         activeTool: 'select',
       }),
@@ -299,6 +524,8 @@ export const useUIStore = create<UIState & UIActions>()(
           layerId: null,
           aspectRatio: 'free',
           cropRect: null,
+          lockAspect: false,
+          initialAspectRatio: null,
         },
         activeTool: 'select',
       });
@@ -373,6 +600,61 @@ export const useUIStore = create<UIState & UIActions>()(
     setDodgeBurnSettings: (settings) =>
       set((s) => ({
         dodgeBurnSettings: { ...s.dodgeBurnSettings, ...settings },
+      })),
+
+    setBrushSettings: (settings) =>
+      set((s) => ({
+        brushSettings: { ...s.brushSettings, ...settings },
+      })),
+
+    setCloneStampSettings: (settings) =>
+      set((s) => ({
+        cloneStampSettings: { ...s.cloneStampSettings, ...settings },
+      })),
+
+    setHealingBrushSettings: (settings) =>
+      set((s) => ({
+        healingBrushSettings: { ...s.healingBrushSettings, ...settings },
+      })),
+
+    setSpotHealingSettings: (settings) =>
+      set((s) => ({
+        spotHealingSettings: { ...s.spotHealingSettings, ...settings },
+      })),
+
+    setSpongeSettings: (settings) =>
+      set((s) => ({
+        spongeSettings: { ...s.spongeSettings, ...settings },
+      })),
+
+    setSmudgeSettings: (settings) =>
+      set((s) => ({
+        smudgeSettings: { ...s.smudgeSettings, ...settings },
+      })),
+
+    setBlurSharpenSettings: (settings) =>
+      set((s) => ({
+        blurSharpenSettings: { ...s.blurSharpenSettings, ...settings },
+      })),
+
+    setGradientSettings: (settings) =>
+      set((s) => ({
+        gradientSettings: { ...s.gradientSettings, ...settings },
+      })),
+
+    setPaintBucketSettings: (settings) =>
+      set((s) => ({
+        paintBucketSettings: { ...s.paintBucketSettings, ...settings },
+      })),
+
+    setTransformSettings: (settings) =>
+      set((s) => ({
+        transformSettings: { ...s.transformSettings, ...settings },
+      })),
+
+    setLiquifySettings: (settings) =>
+      set((s) => ({
+        liquifySettings: { ...s.liquifySettings, ...settings },
       })),
   }))
 );

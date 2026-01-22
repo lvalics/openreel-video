@@ -53,10 +53,6 @@ export function AppearanceSection({ layer }: Props) {
 
   return (
     <div className="space-y-4">
-      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Appearance
-      </h4>
-
       <div>
         <label className="block text-[10px] text-muted-foreground mb-1">Blend Mode</label>
         <select
